@@ -168,7 +168,7 @@ RadarBridge/
 
 ## 10. 相关链接
 
-- [GitHub Release v1.1.0](https://github.com/blaze-tc/RadarControl/releases/tag/v1.1.0)
+- [GitHub 标签 v1.1.0](https://github.com/blaze-tc/RadarControl/tree/v1.1.0)
 - [Unity 集成说明](docs/unity-integration.md)
 - [故障排查与网络配置](docs/troubleshooting.md)
 - [测试报告](docs/test-report.md)
