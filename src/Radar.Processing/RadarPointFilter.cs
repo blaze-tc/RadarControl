@@ -1,0 +1,83 @@
+using Yuexin.Radar.Contracts;
+
+namespace Yuexin.Radar.Processing;
+
+public static class RadarPointFilter
+{
+    public static IReadOnlyList<RadarPoint> Apply(
+        IEnumerable<RadarPoint> points,
+        RadarFilterOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var filtered = new List<RadarPoint>();
+        foreach (var point in points)
+        {
+            var distanceMeters = point.DistanceCentimeters / 100f;
+            if (distanceMeters < options.MinimumDistanceMeters || distanceMeters > options.MaximumDistanceMeters)
+            {
+                continue;
+            }
+
+            if (IsAngleInRange(point.AngleDegrees, options.BlindZoneStartDegrees, options.BlindZoneEndDegrees) ||
+                !IsAngleInRange(point.AngleDegrees, options.MinimumAngleDegrees, options.MaximumAngleDegrees))
+            {
+                continue;
+            }
+
+            var position = new Point2(point.X, point.Y);
+            if (options.ActivePolygon.Count >= 3 && !PolygonRegion.Contains(options.ActivePolygon, position))
+            {
+                continue;
+            }
+
+            if (options.ActivePolygon.Count >= 3 && IsInsideEdgeDeadZone(position, options))
+            {
+                continue;
+            }
+
+            if (options.MaskedPolygons.Any(mask => mask.Count >= 3 && PolygonRegion.Contains(mask, position)))
+            {
+                continue;
+            }
+
+            filtered.Add(point);
+        }
+
+        return filtered;
+    }
+
+    private static bool IsAngleInRange(float angle, float start, float end)
+    {
+        angle = NormalizeAngle(angle);
+        start = NormalizeAngle(start);
+        if (MathF.Abs(end - 360f) < 1e-5f && MathF.Abs(start) < 1e-5f)
+        {
+            return true;
+        }
+
+        end = NormalizeAngle(end);
+        return start <= end
+            ? angle >= start && angle <= end
+            : angle >= start || angle <= end;
+    }
+
+    private static float NormalizeAngle(float angle)
+    {
+        var normalized = angle % 360f;
+        return normalized < 0f ? normalized + 360f : normalized;
+    }
+
+    private static bool IsInsideEdgeDeadZone(Point2 point, RadarFilterOptions options)
+    {
+        var minimumX = options.ActivePolygon.Min(vertex => vertex.X);
+        var maximumX = options.ActivePolygon.Max(vertex => vertex.X);
+        var minimumY = options.ActivePolygon.Min(vertex => vertex.Y);
+        var maximumY = options.ActivePolygon.Max(vertex => vertex.Y);
+        return point.X < minimumX + options.LeftEdgeDeadZoneMeters ||
+               point.X > maximumX - options.RightEdgeDeadZoneMeters ||
+               point.Y < minimumY + options.BottomEdgeDeadZoneMeters ||
+               point.Y > maximumY - options.TopEdgeDeadZoneMeters;
+    }
+}
