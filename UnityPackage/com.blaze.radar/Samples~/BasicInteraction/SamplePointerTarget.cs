@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.UI;
 
 namespace Blaze.Radar.Samples
 {
@@ -20,7 +19,7 @@ namespace Blaze.Radar.Samples
         [Header("Target")]
         [SerializeField] private Camera eventCamera;
         [SerializeField] private Renderer targetRenderer;
-        [SerializeField] private Text interactionStatusText;
+        [SerializeField] private RadarDemoLogger demoLogger;
 
         [Header("Feedback")]
         [SerializeField] private Color normalColor = new Color32(56, 211, 214, 255);
@@ -63,36 +62,36 @@ namespace Blaze.Radar.Samples
         {
             transform.localScale = _baseScale * 1.08f;
             SetColor(hoverColor);
-            Report($"{name}: Pointer Enter", eventData);
+            Report("PointerEnter", eventData);
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
             transform.localScale = _baseScale;
             SetColor(normalColor);
-            Report($"{name}: Pointer Exit", eventData);
+            Report("PointerExit", eventData);
         }
 
         public void OnPointerDown(PointerEventData eventData)
         {
             SetColor(pressedColor);
-            Report($"{name}: Pointer Down", eventData);
+            Report("PointerDown", eventData);
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
             SetColor(hoverColor);
-            Report($"{name}: Pointer Up", eventData);
+            Report("PointerUp", eventData);
         }
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            Report($"{name}: Pointer Click", eventData);
+            Report("PointerClick", eventData);
         }
 
         public void OnBeginDrag(PointerEventData eventData)
         {
-            Report($"{name}: Begin Drag", eventData);
+            Report("BeginDrag", eventData);
         }
 
         public void OnDrag(PointerEventData eventData)
@@ -104,12 +103,12 @@ namespace Blaze.Radar.Samples
                 transform.position = new Vector3(worldPoint.x, worldPoint.y, transform.position.z);
             }
 
-            Report($"{name}: Drag", eventData);
+            Report("Drag", eventData, true);
         }
 
         public void OnEndDrag(PointerEventData eventData)
         {
-            Report($"{name}: End Drag", eventData);
+            Report("EndDrag", eventData);
         }
 
         private void SetColor(Color color)
@@ -120,11 +119,11 @@ namespace Blaze.Radar.Samples
             }
         }
 
-        private void Report(string message, PointerEventData eventData)
+        private void Report(string eventName, PointerEventData eventData, bool continuous = false)
         {
-            if (interactionStatusText != null)
+            if (demoLogger != null)
             {
-                interactionStatusText.text = $"{message} · Pointer {eventData.pointerId}";
+                demoLogger.LogPointerEvent(name, eventName, eventData, continuous);
             }
         }
     }

@@ -82,6 +82,72 @@ public sealed class RadarPipeClientTests
     }
 
     [Fact]
+    public async Task Client_PreservesPointerFrameEnvelopeDiagnostics()
+    {
+        var pipeName = "RadarControl.Tests." + Guid.NewGuid().ToString("N");
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using var server = new NamedPipeServerStream(
+            pipeName,
+            PipeDirection.InOut,
+            1,
+            PipeTransmissionMode.Byte,
+            PipeOptions.Asynchronous);
+        using var client = new RadarPipeClient(pipeName, 500, 50);
+
+        client.Start(Hello());
+        await server.WaitForConnectionAsync(cancellation.Token);
+        await ReadEnvelopeAsync(server, cancellation.Token);
+        await WriteEnvelopeAsync(
+            server,
+            RadarIpcProtocol.Create(
+                RadarIpcMessageType.HelloAck,
+                1,
+                new RadarHelloAckPayload { bridgeVersion = "1.1.1", deviceModel = "F10", connected = true }),
+            cancellation.Token);
+        await WaitUntilAsync(() => client.IsConnected, cancellation.Token);
+
+        var pointerEnvelope = RadarIpcProtocol.Create(
+            RadarIpcMessageType.PointerFrame,
+            42,
+            new RadarPointerFrameMessage
+            {
+                pointers =
+                {
+                    new RadarPointerMessage
+                    {
+                        pointerId = 7,
+                        normalizedX = 0.25f,
+                        normalizedY = 0.75f,
+                        phase = RadarPointerPhase.Down,
+                        confidence = 0.91f,
+                        timestampUnixMilliseconds = 1_710_000_000_100
+                    }
+                }
+            });
+        pointerEnvelope.timestampUnixMilliseconds = 1_710_000_000_123;
+        await WriteEnvelopeAsync(server, pointerEnvelope, cancellation.Token);
+
+        RadarPointerFrameMessage? received = null;
+        await WaitUntilAsync(() =>
+        {
+            if (!client.TryConsumeLatestFrame(out var frame))
+            {
+                return false;
+            }
+
+            received = frame;
+            return true;
+        }, cancellation.Token);
+
+        Assert.NotNull(received);
+        Assert.Equal(42, received.sequence);
+        Assert.Equal(1_710_000_000_123, received.timestampUnixMilliseconds);
+        Assert.Single(received.pointers);
+        Assert.Equal(7, received.pointers[0].pointerId);
+        await client.StopAsync();
+    }
+
+    [Fact]
     public async Task Client_StartDuringStop_DoesNotCreateAnOverlappingConnectionLoop()
     {
         var pipeName = "RadarControl.Tests." + Guid.NewGuid().ToString("N");

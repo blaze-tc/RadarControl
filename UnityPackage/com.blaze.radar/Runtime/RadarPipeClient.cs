@@ -330,6 +330,8 @@ namespace Blaze.Radar
                     var frame = envelope.payload.ToObject<RadarPointerFrameMessage>();
                     if (frame != null)
                     {
+                        frame.sequence = envelope.sequence;
+                        frame.timestampUnixMilliseconds = envelope.timestampUnixMilliseconds;
                         _latestFrame.Publish(frame);
                     }
                     break;

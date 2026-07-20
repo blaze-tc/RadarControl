@@ -1,10 +1,10 @@
-# Blaze Radar SDK 1.1.1
+# Blaze Radar SDK 1.1.2
 
 The package connects Unity to the external `RadarBridge.exe` over the `Yuexin.RadarBridge` Named Pipe. Unity never opens the radar TCP socket.
 
 ## Quick start
 
-1. Import the Basic Interaction sample from Package Manager.
+1. Import the Basic Interaction sample from Package Manager. Its right-hand diagnostics panel reports IPC, frame timing, dropped frames, pointer samples and EventSystem callbacks during real-device testing.
 2. Use **Tools > Blaze Radar > Create or Select Settings**. Leave the Editor Bridge executable empty to use the embedded self-contained Bridge.
 3. Use **GameObject > Blaze Radar > Create Runtime** in an existing scene.
 4. Ensure each screen-space Canvas has a `GraphicRaycaster`.

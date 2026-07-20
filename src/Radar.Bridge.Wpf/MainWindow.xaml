@@ -327,7 +327,7 @@
                     <TextBlock Text="  ·  FRAME " Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"/>
                     <TextBlock Text="{Binding LastFrameSequence}"/>
                 </StackPanel>
-                <TextBlock Text="Bridge 1.1.1  ·  IPC 1  ·  Windows x64" HorizontalAlignment="Right" VerticalAlignment="Center"
+                <TextBlock Text="Bridge 1.1.2  ·  IPC 1  ·  Windows x64" HorizontalAlignment="Right" VerticalAlignment="Center"
                            Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"/>
             </Grid>
         </Border>

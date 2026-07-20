@@ -4,68 +4,45 @@ using UnityEngine.UI;
 namespace Blaze.Radar.Samples
 {
     /// <summary>
-    /// Presents the state of the authored UGUI sample scene.
-    /// UI controls call these public methods through persistent UnityEvent listeners.
+    /// Converts authored UGUI UnityEvents into readable sample state changes.
     /// </summary>
     public sealed class BasicInteractionPresenter : MonoBehaviour
     {
         [Header("Scene References")]
-        [SerializeField] private RadarFrameDispatcher radarDispatcher;
-        [SerializeField] private Text connectionStatusText;
-        [SerializeField] private Text interactionStatusText;
+        [SerializeField] private RadarDemoLogger demoLogger;
         [SerializeField] private Toggle interactionToggle;
         [SerializeField] private Slider strengthSlider;
 
         private void OnEnable()
         {
-            if (radarDispatcher != null)
-            {
-                radarDispatcher.ConnectionChanged += OnConnectionChanged;
-            }
-
-            OnConnectionChanged(radarDispatcher != null && radarDispatcher.IsConnected);
             RefreshControlSummary();
-        }
-
-        private void OnDisable()
-        {
-            if (radarDispatcher != null)
-            {
-                radarDispatcher.ConnectionChanged -= OnConnectionChanged;
-            }
         }
 
         public void OnRadarButtonClicked()
         {
-            SetInteractionStatus("Button received IPointerDown / IPointerUp / IPointerClick.");
+            demoLogger?.LogUiEvent("Button Click", "Radar Button completed its UnityEvent callback");
         }
 
         public void OnToggleChanged(bool isOn)
         {
-            SetInteractionStatus($"Toggle changed through UGUI: {(isOn ? "ON" : "OFF")}");
+            demoLogger?.LogUiEvent("Toggle Changed", isOn ? "interaction layer ON" : "interaction layer OFF");
         }
 
         public void OnSliderChanged(float value)
         {
-            SetInteractionStatus($"Slider value: {value:0.00}");
+            demoLogger?.LogContinuousUiEvent("Slider Changed", $"value {value:0.000}");
         }
 
         public void OnScrollChanged(Vector2 normalizedPosition)
         {
-            SetInteractionStatus($"ScrollRect position: {normalizedPosition.y:0.00}");
-        }
-
-        private void OnConnectionChanged(bool connected)
-        {
-            if (connectionStatusText == null)
+            if (demoLogger == null || demoLogger.IsAutoScrolling)
             {
                 return;
             }
 
-            connectionStatusText.text = connected ? "IPC  CONNECTED" : "IPC  WAITING";
-            connectionStatusText.color = connected
-                ? new Color32(82, 224, 179, 255)
-                : new Color32(247, 184, 89, 255);
+            demoLogger.LogContinuousUiEvent(
+                "Log ScrollRect",
+                $"normalized ({normalizedPosition.x:0.000}, {normalizedPosition.y:0.000})");
         }
 
         private void RefreshControlSummary()
@@ -75,16 +52,8 @@ namespace Blaze.Radar.Samples
                 return;
             }
 
-            SetInteractionStatus(
-                $"Ready · Toggle {(interactionToggle.isOn ? "ON" : "OFF")} · Slider {strengthSlider.value:0.00}");
-        }
-
-        private void SetInteractionStatus(string message)
-        {
-            if (interactionStatusText != null)
-            {
-                interactionStatusText.text = message;
-            }
+            demoLogger?.ShowInteractionStatus(
+                $"Ready | Toggle {(interactionToggle.isOn ? "ON" : "OFF")} | Slider {strengthSlider.value:0.00}");
         }
     }
 }

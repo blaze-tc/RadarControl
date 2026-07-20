@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.2 - 2026-07-20
+
+- Add an in-scene diagnostics panel for IPC state, Bridge/device identity, frame sequence, timing, dropped frames and per-pointer samples.
+- Log standard UGUI, Physics and Physics2D EventSystem callbacks with pointer ID, pixel position, delta, press position and raycast target.
+- Keep drag/scroll probes limited to controls that already implement those interactions, preserving native Button and Toggle behavior.
+- Keep history bounded and throttle continuous frame/drag updates so long-running device tests remain readable and memory-safe.
+- Preserve IPC envelope sequence and timestamp metadata on Unity pointer frames for end-to-end fault isolation.
+
 ## 1.1.1 - 2026-07-20
 
 - Improve contrast across the RadarBridge WPF theme and Basic Interaction sample controls.

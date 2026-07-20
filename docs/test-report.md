@@ -64,9 +64,9 @@ dotnet test RadarControl.sln --no-restore
 
 ## 阶段 9：Unity UPM
 
-- `Radar.Unity.Compatibility.Tests`：15/15 通过，直接编译包内长度前缀解码器、容量 1 最新值缓存、Named Pipe 客户端和 Bridge 路径解析器，并验证 `com.blaze.radar` 包身份、Sample asmdef 依赖、内嵌 self-contained Bridge 与 F10/F20 Profile 完整存在。
+- `Radar.Unity.Compatibility.Tests`：16/16 通过，直接编译包内长度前缀解码器、容量 1 最新值缓存、Named Pipe 客户端和 Bridge 路径解析器，并验证 IPC 帧序号/时间戳保留、`com.blaze.radar` 包身份、Sample 显式绑定、有界诊断日志、内嵌 self-contained Bridge 与 F10/F20 Profile 完整存在。
 - UPM 包包含 Launcher、PipeClient、FrameDispatcher、RadarInputModule、BuildProcessor、SettingsProvider、PlayMode 测试与 Basic Interaction Sample。
-- Unity 2021.3.45f1 已真实导入并编译 `Blaze.Radar.Runtime`、`Blaze.Radar.Editor` 与 `Blaze.Radar.Sample.BasicInteraction`；已在 Play Mode 验证场景启动、内嵌 Bridge 拉起、Hello/HelloAck IPC 连接以及 UGUI/3D/2D 射线配置。包内自动 PlayMode 测试仍保留给目标项目的 Unity Test Runner 执行。
+- Unity 2021.3.45f1 已真实导入并编译 `Blaze.Radar.Runtime`、`Blaze.Radar.Editor` 与 `Blaze.Radar.Sample.BasicInteraction`；已在 Play Mode 验证场景启动、内嵌 Bridge 1.1.2 拉起、Hello/HelloAck IPC 连接、UGUI/3D/2D 射线配置，以及指针探针和详细界面日志。包内自动 PlayMode 测试仍保留给目标项目的 Unity Test Runner 执行。
 
 ## 阶段 10：构建与发布
 
@@ -83,8 +83,8 @@ dotnet test RadarControl.sln --no-restore
 - `Radar.Processing.Tests`：23/23。
 - `Radar.Ipc.Tests`：11/11。
 - `Radar.Bridge.Wpf.Tests`：18/18。
-- `Radar.Unity.Compatibility.Tests`：15/15。
-- 合计：105/105 通过，0 失败，0 跳过。
+- `Radar.Unity.Compatibility.Tests`：16/16。
+- 合计：106/106 通过，0 失败，0 跳过。
 
 ## 现场尚待执行
 

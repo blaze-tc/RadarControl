@@ -12,6 +12,7 @@ public sealed class PackageIdentityTests
 
         using var packageJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(packageRoot, "package.json")));
         Assert.Equal("com.blaze.radar", packageJson.RootElement.GetProperty("name").GetString());
+        Assert.Equal("1.1.2", packageJson.RootElement.GetProperty("version").GetString());
         Assert.Equal("Blaze Radar SDK", packageJson.RootElement.GetProperty("displayName").GetString());
 
         using var runtimeAssembly = JsonDocument.Parse(File.ReadAllText(
@@ -29,10 +30,12 @@ public sealed class PackageIdentityTests
         Assert.Contains("Blaze.Radar.Runtime", references);
         Assert.Contains("Unity.ugui", references);
 
-        var sampleSource = File.ReadAllText(
-            Path.Combine(packageRoot, "Samples~", "BasicInteraction", "BasicInteractionPresenter.cs"));
-        Assert.Contains("RadarFrameDispatcher", sampleSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("Yuexin.Radar.Unity", sampleSource, StringComparison.Ordinal);
+        var loggerSource = File.ReadAllText(
+            Path.Combine(packageRoot, "Samples~", "BasicInteraction", "RadarDemoLogger.cs"));
+        Assert.Contains("RadarFrameDispatcher", loggerSource, StringComparison.Ordinal);
+        Assert.Contains("maxLogEntries", loggerSource, StringComparison.Ordinal);
+        Assert.Contains("frameHistoryIntervalSeconds", loggerSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("Yuexin.Radar.Unity", loggerSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -73,8 +76,25 @@ public sealed class PackageIdentityTests
         Assert.Contains("m_MethodName: OnToggleChanged", scene, StringComparison.Ordinal);
         Assert.Contains("m_MethodName: OnSliderChanged", scene, StringComparison.Ordinal);
         Assert.Contains("m_MethodName: OnScrollChanged", scene, StringComparison.Ordinal);
+        Assert.Contains("m_MethodName: ClearLog", scene, StringComparison.Ordinal);
+        Assert.Contains("m_Name: Live Frame Data", scene, StringComparison.Ordinal);
+        Assert.Contains("m_Name: Detailed Event Log", scene, StringComparison.Ordinal);
 
-        foreach (var scriptName in new[] { "BasicInteractionPresenter.cs", "SamplePointerTarget.cs" })
+        var pointerProbe = File.ReadAllText(Path.Combine(sampleRoot, "RadarPointerEventProbe.cs"));
+        var dragProbe = File.ReadAllText(Path.Combine(sampleRoot, "RadarDragEventProbe.cs"));
+        Assert.DoesNotContain("IDragHandler", pointerProbe, StringComparison.Ordinal);
+        Assert.DoesNotContain("IScrollHandler", pointerProbe, StringComparison.Ordinal);
+        Assert.Contains("IDragHandler", dragProbe, StringComparison.Ordinal);
+        Assert.Contains("IScrollHandler", dragProbe, StringComparison.Ordinal);
+
+        foreach (var scriptName in new[]
+                 {
+                     "BasicInteractionPresenter.cs",
+                     "RadarDemoLogger.cs",
+                     "RadarDragEventProbe.cs",
+                     "RadarPointerEventProbe.cs",
+                     "SamplePointerTarget.cs"
+                 })
         {
             var guidLine = File.ReadLines(Path.Combine(sampleRoot, scriptName + ".meta"))
                 .Single(line => line.StartsWith("guid: ", StringComparison.Ordinal));

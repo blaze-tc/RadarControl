@@ -73,6 +73,8 @@ namespace Blaze.Radar
     [Serializable]
     public sealed class RadarPointerFrameMessage
     {
+        public long sequence;
+        public long timestampUnixMilliseconds;
         public List<RadarPointerMessage> pointers = new List<RadarPointerMessage>();
     }
 

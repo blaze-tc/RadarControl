@@ -1,6 +1,6 @@
 {
   "name": "com.blaze.radar",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "displayName": "Blaze Radar SDK",
   "description": "FaseLase F10/F20 self-contained RadarBridge, Named Pipe client and multi-pointer EventSystem input for Unity.",
   "unity": "2021.3",
@@ -20,7 +20,7 @@
   "samples": [
     {
       "displayName": "Basic Interaction",
-      "description": "Authored UGUI, 3D and 2D EventSystem interaction sample with persistent UnityEvents.",
+      "description": "Authored UGUI, 3D and 2D EventSystem sample with live frame diagnostics and bounded event history.",
       "path": "Samples~/BasicInteraction"
     }
   ]

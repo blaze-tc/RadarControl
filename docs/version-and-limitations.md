@@ -1,11 +1,12 @@
 # 版本与已知限制
 
-## 1.1.1
+## 1.1.2
 
-- Bridge：`BridgeVersion.Value = 1.1.1`
-- Unity SDK：`UnitySdkVersion.Value = 1.1.1`，与 `package.json` 一致
+- Bridge：`BridgeVersion.Value = 1.1.2`
+- Unity SDK：`UnitySdkVersion.Value = 1.1.2`，与 `package.json` 一致
 - Unity 包名：`com.blaze.radar`；公共 C# 命名空间：`Blaze.Radar`
 - IPC：`IpcProtocolVersion.Current = 1`
+- Basic Interaction：包含有界真机日志、帧序号/时间/丢帧统计、逐指针数据及 UGUI/2D/3D EventSystem 回调。
 
 IPC 主版本不一致时握手会返回明确 Error，客户端不得继续消费业务帧。Bridge 与 Unity SDK 可独立修订，但修改帧结构或语义时必须同时升级 IPC 版本和兼容测试。
 
