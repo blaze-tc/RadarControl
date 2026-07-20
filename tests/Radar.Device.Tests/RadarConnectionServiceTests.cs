@@ -10,6 +10,21 @@ public sealed class RadarConnectionServiceTests
 {
     private static readonly byte[] ManualSample = [0x30, 0x14, 0x13, 0xAF];
 
+    [Theory]
+    [InlineData("not-an-ip", "127.0.0.1", 8487)]
+    [InlineData("127.0.0.1", "not-an-ip", 8487)]
+    [InlineData("127.0.0.1", "127.0.0.1", 0)]
+    [InlineData("127.0.0.1", "127.0.0.1", 65536)]
+    public void Constructor_RejectsInvalidEndpointsImmediately(string radarIp, string localIp, int port)
+    {
+        var options = Options(8487, autoReconnect: false);
+        options.RadarIp = radarIp;
+        options.LocalIp = localIp;
+        options.Port = port;
+
+        Assert.ThrowsAny<ArgumentException>(() => new RadarConnectionService(options));
+    }
+
     [Fact]
     public async Task RunAsync_ReceivesProtocolPointsWithoutBlockingCaller()
     {
@@ -92,6 +107,36 @@ public sealed class RadarConnectionServiceTests
         await runTask;
 
         Assert.True(elapsed >= options.DataWarningTimeout);
+    }
+
+    [Fact]
+    public async Task RunAsync_FaultingPointSubscriber_DoesNotStopOtherSubscribersOrTransport()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var pointReceived = new TaskCompletionSource<RadarPoint>(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var service = new RadarConnectionService(Options(port, autoReconnect: false));
+        service.PointReceived += _ => throw new InvalidOperationException("observer failed");
+        service.PointReceived += point => pointReceived.TrySetResult(point);
+
+        var runTask = service.RunAsync(cancellation.Token);
+        using var server = await listener.AcceptSocketAsync(cancellation.Token);
+        await server.SendAsync(ManualSample, SocketFlags.None, cancellation.Token);
+
+        var completed = await Task.WhenAny(pointReceived.Task, Task.Delay(500, cancellation.Token));
+        cancellation.Cancel();
+        try
+        {
+            await runTask;
+        }
+        catch (InvalidOperationException)
+        {
+            // The assertion below captures the pre-fix behavior without hiding the regression.
+        }
+
+        Assert.Same(pointReceived.Task, completed);
     }
 
     private static RadarConnectionOptions Options(int port, bool autoReconnect)

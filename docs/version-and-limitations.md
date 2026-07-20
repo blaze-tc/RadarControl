@@ -1,9 +1,9 @@
 # 版本与已知限制
 
-## 1.1.0
+## 1.1.1
 
-- Bridge：`BridgeVersion.Value = 1.0.0`
-- Unity SDK：`UnitySdkVersion.Value = 1.1.0`，与 `package.json` 一致
+- Bridge：`BridgeVersion.Value = 1.1.1`
+- Unity SDK：`UnitySdkVersion.Value = 1.1.1`，与 `package.json` 一致
 - Unity 包名：`com.blaze.radar`；公共 C# 命名空间：`Blaze.Radar`
 - IPC：`IpcProtocolVersion.Current = 1`
 

@@ -1,11 +1,13 @@
 # Basic Interaction
 
-Open `BasicInteraction.unity` and enter Play Mode. The bootstrap creates:
+Open `BasicInteraction.unity` and enter Play Mode. The scene is authored with ordinary Unity objects and explicit Inspector references; it does not build its UI from code.
 
-- a UGUI Button, Toggle, Slider and ScrollRect;
-- a 3D Cube with `PhysicsRaycaster` interaction;
-- a 2D Collider with `Physics2DRaycaster` interaction;
-- `RadarInputModule` in `RadarAndMouseDebug` mode;
-- Bridge launcher, Named Pipe dispatcher and debug overlay.
+The sample demonstrates the native EventSystem path end to end:
 
-Mouse input is synthesized by `RadarInputModule` itself, so `StandaloneInputModule` is not needed and duplicate clicks are avoided. For deployment switch the input mode to `RadarOnly`.
+- `RadarInputModule` is the active `BaseInputModule` on the scene EventSystem.
+- `GraphicRaycaster` handles Button, Toggle, Slider and ScrollRect.
+- `PhysicsRaycaster` and `Physics2DRaycaster` handle the 3D and 2D targets.
+- Persistent UnityEvent listeners connect the controls to `BasicInteractionPresenter`.
+- `SamplePointerTarget` implements the same pointer and drag interfaces used by normal mouse or touch input.
+
+Use `RadarAndMouseDebug` while learning the sample, then switch to `RadarOnly` for production scenes.

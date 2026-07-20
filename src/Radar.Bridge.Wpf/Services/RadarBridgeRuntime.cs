@@ -17,6 +17,7 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
     private readonly ILogger<RadarBridgeRuntime> _logger;
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
+    private readonly SemaphoreSlim _sourceTransitionLock = new(1, 1);
     private readonly RadarReplayGate _replayGate = new();
     private readonly Channel<RadarScanFrame> _latestFrames = Channel.CreateBounded<RadarScanFrame>(
         new BoundedChannelOptions(1)
@@ -62,68 +63,102 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
 
     public Task StartInfrastructureAsync(CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        cancellationToken.ThrowIfCancellationRequested();
         if (Interlocked.Exchange(ref _infrastructureStarted, 1) != 0)
         {
             return Task.CompletedTask;
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        _pipeServer = new RadarPipeServer(new RadarPipeServerOptions
+        try
         {
-            PipeName = _configuration.Ipc.PipeName,
-            HeartbeatTimeout = TimeSpan.FromSeconds(3),
-            HelloAckFactory = () => new HelloAckPayload(
-                BridgeVersion.Value,
-                _configuration.Device.DeviceModel.ToString(),
-                _connectionService?.State == RadarConnectionState.Connected || _simulationTask is not null)
-        });
-        _pipeServer.ClientConnected += OnUnityConnected;
-        _pipeServer.ClientDisconnected += OnUnityDisconnected;
-        _pipeServer.ClientError += exception => PublishLog($"Unity IPC：{exception.Message}");
-        _pipeServer.MessageReceived += OnIpcMessage;
-        _pipeTask = _pipeServer.RunAsync(_lifetimeCancellation.Token);
-        _processingTask = ProcessFramesAsync(_lifetimeCancellation.Token);
-        PublishLog($"IPC 服务已启动：{_configuration.Ipc.PipeName} / 协议 v{IpcProtocolVersion.Current}");
-        return Task.CompletedTask;
+            _pipeServer = new RadarPipeServer(new RadarPipeServerOptions
+            {
+                PipeName = _configuration.Ipc.PipeName,
+                HeartbeatTimeout = TimeSpan.FromSeconds(3),
+                HelloAckFactory = () => new HelloAckPayload(
+                    BridgeVersion.Value,
+                    _configuration.Device.DeviceModel.ToString(),
+                    _connectionService?.State == RadarConnectionState.Connected || _simulationTask is not null)
+            });
+            _pipeServer.ClientConnected += OnUnityConnected;
+            _pipeServer.ClientDisconnected += OnUnityDisconnected;
+            _pipeServer.ClientError += exception => PublishLog($"Unity IPC：{exception.Message}");
+            _pipeServer.MessageReceived += OnIpcMessage;
+            _pipeTask = _pipeServer.RunAsync(_lifetimeCancellation.Token);
+            _processingTask = ProcessFramesAsync(_lifetimeCancellation.Token);
+            PublishLog($"IPC 服务已启动：{_configuration.Ipc.PipeName} / 协议 v{IpcProtocolVersion.Current}");
+            return Task.CompletedTask;
+        }
+        catch
+        {
+            _pipeServer = null;
+            _pipeTask = null;
+            _processingTask = null;
+            Interlocked.Exchange(ref _infrastructureStarted, 0);
+            throw;
+        }
     }
 
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        await StartInfrastructureAsync(cancellationToken).ConfigureAwait(false);
-        await StopSimulationAsync().ConfigureAwait(false);
-        await StopReplayAsync().ConfigureAwait(false);
-        await DisconnectAsync().ConfigureAwait(false);
-
-        await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        await _sourceTransitionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var options = new RadarConnectionOptions
+            await StartInfrastructureAsync(cancellationToken).ConfigureAwait(false);
+            await StopSimulationCoreAsync().ConfigureAwait(false);
+            await StopReplayCoreAsync().ConfigureAwait(false);
+            await DisconnectCoreAsync().ConfigureAwait(false);
+
+            await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
             {
-                RadarIp = _configuration.Device.RadarIp,
-                Port = _configuration.Device.Port,
-                LocalIp = _configuration.Device.LocalIp,
-                AutoReconnect = _configuration.Device.AutoReconnect
-            };
-            var service = new RadarConnectionService(options);
-            service.StateChanged += OnConnectionStateChanged;
-            service.ConnectionError += exception => PublishLog($"雷达连接：{exception.Message}");
-            service.DataWarning += elapsed => PublishLog($"数据预警：{elapsed.TotalMilliseconds:0} ms 未收到雷达数据。");
-            service.BytesReceived += OnRawBytesReceived;
-            service.ScanFrameReceived += frame => _latestFrames.Writer.TryWrite(frame);
-            _connectionService = service;
-            _connectionCancellation = CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken,
-                _lifetimeCancellation.Token);
-            _connectionTask = service.RunAsync(_connectionCancellation.Token);
-            PublishLog($"正在连接 {_configuration.Device.RadarIp}:{_configuration.Device.Port}（{_configuration.Device.DeviceModel}）。");
+                var options = new RadarConnectionOptions
+                {
+                    RadarIp = _configuration.Device.RadarIp,
+                    Port = _configuration.Device.Port,
+                    LocalIp = _configuration.Device.LocalIp,
+                    AutoReconnect = _configuration.Device.AutoReconnect
+                };
+                var service = new RadarConnectionService(options);
+                service.StateChanged += OnConnectionStateChanged;
+                service.ConnectionError += exception => PublishLog($"雷达连接：{exception.Message}");
+                service.DataWarning += elapsed => PublishLog($"数据预警：{elapsed.TotalMilliseconds:0} ms 未收到雷达数据。");
+                service.BytesReceived += OnRawBytesReceived;
+                service.ScanFrameReceived += frame => _latestFrames.Writer.TryWrite(frame);
+                _connectionService = service;
+                _connectionCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken,
+                    _lifetimeCancellation.Token);
+                _connectionTask = service.RunAsync(_connectionCancellation.Token);
+                PublishLog($"正在连接 {_configuration.Device.RadarIp}:{_configuration.Device.Port}（{_configuration.Device.DeviceModel}）。");
+            }
+            finally
+            {
+                _lifecycleLock.Release();
+            }
         }
         finally
         {
-            _lifecycleLock.Release();
+            _sourceTransitionLock.Release();
         }
     }
 
     public async Task DisconnectAsync()
+    {
+        await _sourceTransitionLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await DisconnectCoreAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _sourceTransitionLock.Release();
+        }
+    }
+
+    private async Task DisconnectCoreAsync()
     {
         await _lifecycleLock.WaitAsync().ConfigureAwait(false);
         try
@@ -154,20 +189,42 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
 
     public async Task StartSimulationAsync(CancellationToken cancellationToken = default)
     {
-        await StartInfrastructureAsync(cancellationToken).ConfigureAwait(false);
-        await DisconnectAsync().ConfigureAwait(false);
-        await StopReplayAsync().ConfigureAwait(false);
-        await StopSimulationAsync().ConfigureAwait(false);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        await _sourceTransitionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await StartInfrastructureAsync(cancellationToken).ConfigureAwait(false);
+            await DisconnectCoreAsync().ConfigureAwait(false);
+            await StopReplayCoreAsync().ConfigureAwait(false);
+            await StopSimulationCoreAsync().ConfigureAwait(false);
 
-        _simulationCancellation = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken,
-            _lifetimeCancellation.Token);
-        _simulationTask = GenerateSimulationAsync(_simulationCancellation.Token);
-        ConnectionStateChanged?.Invoke(RadarConnectionState.Connected);
-        PublishLog("合成点云模拟已启动；现场验收仍须使用真实 .radarrec 数据。");
+            _simulationCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _lifetimeCancellation.Token);
+            _simulationTask = GenerateSimulationAsync(_simulationCancellation.Token);
+            InvokeSafely(ConnectionStateChanged, RadarConnectionState.Connected);
+            PublishLog("合成点云模拟已启动；现场验收仍须使用真实 .radarrec 数据。");
+        }
+        finally
+        {
+            _sourceTransitionLock.Release();
+        }
     }
 
     public async Task StopSimulationAsync()
+    {
+        await _sourceTransitionLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await StopSimulationCoreAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _sourceTransitionLock.Release();
+        }
+    }
+
+    private async Task StopSimulationCoreAsync()
     {
         var cancellation = Interlocked.Exchange(ref _simulationCancellation, null);
         var task = Interlocked.Exchange(ref _simulationTask, null);
@@ -175,7 +232,7 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
         if (task is not null)
         {
             await AwaitCooperativeTaskAsync(task).ConfigureAwait(false);
-            ConnectionStateChanged?.Invoke(RadarConnectionState.Disconnected);
+            InvokeSafely(ConnectionStateChanged, RadarConnectionState.Disconnected);
         }
 
         cancellation?.Dispose();
@@ -234,15 +291,30 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
             throw new ArgumentOutOfRangeException(nameof(speed), "Replay speed must be 0.5, 1.0 or 2.0.");
         }
 
-        await StartInfrastructureAsync(cancellationToken).ConfigureAwait(false);
-        await DisconnectAsync().ConfigureAwait(false);
-        await StopSimulationAsync().ConfigureAwait(false);
-        await StopReplayAsync().ConfigureAwait(false);
-        _replayCancellation = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken,
-            _lifetimeCancellation.Token);
-        _replayTask = ReplayCoreAsync(Path.GetFullPath(path), speed, loop, _replayCancellation.Token);
-        PublishLog($"开始回放：{path} / {speed:0.0}x{(loop ? " / 循环" : string.Empty)}");
+        var fullPath = Path.GetFullPath(path);
+        if (!File.Exists(fullPath))
+        {
+            throw new FileNotFoundException("The radar recording does not exist.", fullPath);
+        }
+
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        await _sourceTransitionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await StartInfrastructureAsync(cancellationToken).ConfigureAwait(false);
+            await DisconnectCoreAsync().ConfigureAwait(false);
+            await StopSimulationCoreAsync().ConfigureAwait(false);
+            await StopReplayCoreAsync().ConfigureAwait(false);
+            _replayCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _lifetimeCancellation.Token);
+            _replayTask = ReplayCoreAsync(fullPath, speed, loop, _replayCancellation.Token);
+            PublishLog($"开始回放：{path} / {speed:0.0}x{(loop ? " / 循环" : string.Empty)}");
+        }
+        finally
+        {
+            _sourceTransitionLock.Release();
+        }
     }
 
     public void PauseReplay()
@@ -271,9 +343,17 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
         }
 
         _lifetimeCancellation.Cancel();
-        await DisconnectAsync().ConfigureAwait(false);
-        await StopSimulationAsync().ConfigureAwait(false);
-        await StopReplayAsync().ConfigureAwait(false);
+        await _sourceTransitionLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await DisconnectCoreAsync().ConfigureAwait(false);
+            await StopSimulationCoreAsync().ConfigureAwait(false);
+            await StopReplayCoreAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _sourceTransitionLock.Release();
+        }
         await StopRecordingAsync().ConfigureAwait(false);
         _latestFrames.Writer.TryComplete();
 
@@ -293,6 +373,7 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
         }
 
         _lifecycleLock.Dispose();
+        _sourceTransitionLock.Dispose();
         _lifetimeCancellation.Dispose();
     }
 
@@ -344,7 +425,7 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
                 receiveRate,
                 _connectionService?.Metrics.CrcErrorCount ?? 0,
                 _connectionService?.Metrics.DiscardedByteCount ?? 0);
-            SnapshotUpdated?.Invoke(snapshot);
+            InvokeSafely(SnapshotUpdated, snapshot);
 
             if (_pipeServer is not null && pointers.Count > 0)
             {
@@ -362,7 +443,7 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
                         LastFrameSentAt = DateTimeOffset.UtcNow,
                         PointerCount = pointers.Count
                     };
-                    UnityStatusChanged?.Invoke(_unityStatus);
+                    InvokeSafely(UnityStatusChanged, _unityStatus);
                 }
             }
         }
@@ -435,6 +516,19 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
 
     public async Task StopReplayAsync()
     {
+        await _sourceTransitionLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await StopReplayCoreAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _sourceTransitionLock.Release();
+        }
+    }
+
+    private async Task StopReplayCoreAsync()
+    {
         var cancellation = Interlocked.Exchange(ref _replayCancellation, null);
         var task = Interlocked.Exchange(ref _replayTask, null);
         cancellation?.Cancel();
@@ -449,7 +543,7 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
 
     private void OnConnectionStateChanged(RadarConnectionState state)
     {
-        ConnectionStateChanged?.Invoke(state);
+        InvokeSafely(ConnectionStateChanged, state);
         _ = RecordConnectionStateAsync(state);
     }
 
@@ -505,7 +599,7 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
             null,
             0,
             null);
-        UnityStatusChanged?.Invoke(_unityStatus);
+        InvokeSafely(UnityStatusChanged, _unityStatus);
         PublishLog($"Unity 已连接：PID {hello.UnityProcessId} / {hello.UnityVersion} / {hello.ScreenWidth}x{hello.ScreenHeight}");
     }
 
@@ -517,7 +611,7 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
         }
 
         _unityStatus = UnityClientStatus.Disconnected;
-        UnityStatusChanged?.Invoke(_unityStatus);
+        InvokeSafely(UnityStatusChanged, _unityStatus);
         PublishLog("Unity IPC 已断开。");
     }
 
@@ -625,7 +719,27 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
     private void PublishLog(string message)
     {
         _logger.LogInformation("{Message}", message);
-        LogReceived?.Invoke($"[{DateTime.Now:HH:mm:ss}] {message}");
+        InvokeSafely(LogReceived, $"[{DateTime.Now:HH:mm:ss}] {message}");
+    }
+
+    private void InvokeSafely<T>(Action<T>? handlers, T value)
+    {
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (Action<T> handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler(value);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "RadarBridge observer failed while handling {EventType}.", typeof(T).Name);
+            }
+        }
     }
 
     private static async Task AwaitCooperativeTaskAsync(Task task)
@@ -647,5 +761,5 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
 
 public static class BridgeVersion
 {
-    public const string Value = "1.0.0";
+    public const string Value = "1.1.1";
 }

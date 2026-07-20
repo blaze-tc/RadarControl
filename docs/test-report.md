@@ -38,7 +38,7 @@ dotnet test RadarControl.sln --no-restore
 
 ## 阶段 3：TCP 与录制
 
-- `Radar.Device.Tests`：10/10 通过（包含阶段 1 的 3 项）。
+- `Radar.Device.Tests`：15/15 通过（包含阶段 1 的 3 项，以及端点预校验和监听者故障隔离）。
 - 使用真实 loopback TCP 验证指定本机 IP 绑定、异步接收、连接状态、断线重连、重连前半包清理、超时预警和取消关闭。
 - `.radarrec` 验证 Header、原始 TCP 字节、连接状态、时间戳、型号和配置快照往返；非法文件头被拒绝。
 
@@ -52,21 +52,21 @@ dotnet test RadarControl.sln --no-restore
 
 ## 阶段 7：IPC
 
-- `Radar.Ipc.Tests`：7/7 通过。
+- `Radar.Ipc.Tests`：11/11 通过。
 - 覆盖长度前缀半包、粘包、非法长度、非法 JSON、版本不兼容。
 - 使用真实 Named Pipe 验证 Hello/HelloAck、Ping/Pong 和不兼容版本 Error。
 
 ## 阶段 8：WPF Bridge
 
-- `Radar.Bridge.Wpf.Tests`：13/13 通过。
+- `Radar.Bridge.Wpf.Tests`：18/18 通过。
 - 覆盖主 ViewModel 的型号/网卡/区域/标定状态、坐标视口、模拟数据、回放暂停与单步、屏蔽区编辑、只读指标绑定的真实窗口启动，以及运行时幂等释放。
 - Release WPF 编译通过；点云由单一自绘 Surface 显示 Raw/Valid/Cluster/Target、盲区、网格、有效区与屏蔽区。
 
 ## 阶段 9：Unity UPM
 
-- `Radar.Unity.Compatibility.Tests`：9/9 通过，直接编译包内长度前缀解码器、容量 1 最新值缓存和 Bridge 路径解析器，并验证 `com.blaze.radar` 包身份、Sample asmdef 依赖、内嵌 self-contained Bridge 与 F10/F20 Profile 完整存在。
+- `Radar.Unity.Compatibility.Tests`：15/15 通过，直接编译包内长度前缀解码器、容量 1 最新值缓存、Named Pipe 客户端和 Bridge 路径解析器，并验证 `com.blaze.radar` 包身份、Sample asmdef 依赖、内嵌 self-contained Bridge 与 F10/F20 Profile 完整存在。
 - UPM 包包含 Launcher、PipeClient、FrameDispatcher、RadarInputModule、BuildProcessor、SettingsProvider、PlayMode 测试与 Basic Interaction Sample。
-- Unity 2021.3.45f1 已真实导入并编译 `Blaze.Radar.Runtime`、`Blaze.Radar.Editor` 与 `Blaze.Radar.Sample.BasicInteraction`；包内 PlayMode 测试尚未由 Unity Test Runner 执行。
+- Unity 2021.3.45f1 已真实导入并编译 `Blaze.Radar.Runtime`、`Blaze.Radar.Editor` 与 `Blaze.Radar.Sample.BasicInteraction`；已在 Play Mode 验证场景启动、内嵌 Bridge 拉起、Hello/HelloAck IPC 连接以及 UGUI/3D/2D 射线配置。包内自动 PlayMode 测试仍保留给目标项目的 Unity Test Runner 执行。
 
 ## 阶段 10：构建与发布
 
@@ -78,15 +78,15 @@ dotnet test RadarControl.sln --no-restore
 ## 当前全量结果
 
 - `Radar.Protocol.Tests`：17/17。
-- `Radar.Device.Tests`：10/10。
+- `Radar.Device.Tests`：15/15。
 - `Radar.Configuration.Tests`：6/6。
 - `Radar.Processing.Tests`：23/23。
-- `Radar.Ipc.Tests`：7/7。
-- `Radar.Bridge.Wpf.Tests`：13/13。
-- `Radar.Unity.Compatibility.Tests`：9/9。
-- 合计：85/85 通过，0 失败，0 跳过。
+- `Radar.Ipc.Tests`：11/11。
+- `Radar.Bridge.Wpf.Tests`：18/18。
+- `Radar.Unity.Compatibility.Tests`：15/15。
+- 合计：105/105 通过，0 失败，0 跳过。
 
 ## 现场尚待执行
 
 - 真实雷达 8 小时稳定性、真实录制/回放、现场四点标定需要 F10/F20 和目标安装环境。
-- Unity Test Runner 的 PlayMode 测试、Basic Interaction 人工验收和 Windows Player 构建仍需在目标 Unity 2021.3+ 项目中执行。
+- Unity Test Runner 的完整 PlayMode 套件与 Windows Player 构建仍需在目标 Unity 2021.3+ 项目中执行；Basic Interaction 已完成 Unity 2021.3.45f1 Play Mode 画面、IPC 状态和场景结构验收。

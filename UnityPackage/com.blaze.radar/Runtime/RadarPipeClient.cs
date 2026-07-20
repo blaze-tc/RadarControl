@@ -1,3 +1,5 @@
+#nullable disable
+
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -15,23 +17,32 @@ namespace Blaze.Radar
         private readonly string _pipeName;
         private readonly int _connectTimeoutMilliseconds;
         private readonly int _reconnectDelayMilliseconds;
+        private readonly int _serverResponseTimeoutMilliseconds;
         private readonly LatestValueBuffer<RadarPointerFrameMessage> _latestFrame =
             new LatestValueBuffer<RadarPointerFrameMessage>();
         private readonly System.Collections.Concurrent.ConcurrentQueue<Action> _mainThreadActions =
             new System.Collections.Concurrent.ConcurrentQueue<Action>();
         private readonly SemaphoreSlim _writeLock = new SemaphoreSlim(1, 1);
+        private readonly object _lifecycleSync = new object();
         private CancellationTokenSource _cancellation;
         private Task _runTask;
+        private Task _stopTask;
         private NamedPipeClientStream _activePipe;
         private long _sequence;
         private int _connected;
         private RadarHelloPayload _hello;
+        private bool _disposed;
 
-        public RadarPipeClient(string pipeName, int connectTimeoutMilliseconds, int reconnectDelayMilliseconds)
+        public RadarPipeClient(
+            string pipeName,
+            int connectTimeoutMilliseconds,
+            int reconnectDelayMilliseconds,
+            int serverResponseTimeoutMilliseconds = 4000)
         {
             _pipeName = string.IsNullOrWhiteSpace(pipeName) ? "Yuexin.RadarBridge" : pipeName;
             _connectTimeoutMilliseconds = Math.Max(50, connectTimeoutMilliseconds);
             _reconnectDelayMilliseconds = Math.Max(50, reconnectDelayMilliseconds);
+            _serverResponseTimeoutMilliseconds = Math.Max(1000, serverResponseTimeoutMilliseconds);
         }
 
         public bool IsConnected => Volatile.Read(ref _connected) != 0;
@@ -45,14 +56,29 @@ namespace Blaze.Radar
 
         public void Start(RadarHelloPayload hello)
         {
-            if (_runTask != null)
+            if (hello == null)
             {
-                return;
+                throw new ArgumentNullException(nameof(hello));
             }
 
-            _hello = hello ?? throw new ArgumentNullException(nameof(hello));
-            _cancellation = new CancellationTokenSource();
-            _runTask = Task.Run(() => RunAsync(_cancellation.Token));
+            lock (_lifecycleSync)
+            {
+                if (_disposed)
+                {
+                    throw new ObjectDisposedException(nameof(RadarPipeClient));
+                }
+
+                if (_runTask != null)
+                {
+                    return;
+                }
+
+                _hello = hello;
+                _stopTask = null;
+                var cancellation = new CancellationTokenSource();
+                _cancellation = cancellation;
+                _runTask = Task.Run(() => RunAsync(cancellation.Token));
+            }
         }
 
         public bool TryConsumeLatestFrame(out RadarPointerFrameMessage frame)
@@ -68,31 +94,55 @@ namespace Blaze.Radar
             }
         }
 
-        public async Task StopAsync()
+        public Task StopAsync()
         {
-            var cancellation = Interlocked.Exchange(ref _cancellation, null);
-            var runTask = Interlocked.Exchange(ref _runTask, null);
-            cancellation?.Cancel();
-            _activePipe?.Dispose();
-            if (runTask != null)
+            lock (_lifecycleSync)
             {
-                try
+                if (_runTask == null)
                 {
-                    await runTask.ConfigureAwait(false);
+                    return _stopTask ?? Task.CompletedTask;
                 }
-                catch (OperationCanceledException)
+
+                if (_stopTask == null)
                 {
-                    // Cooperative cancellation is the normal stop path.
+                    _stopTask = StopCoreAsync(_runTask, _cancellation);
                 }
-                catch (ObjectDisposedException)
+
+                return _stopTask;
+            }
+        }
+
+        private async Task StopCoreAsync(Task runTask, CancellationTokenSource cancellation)
+        {
+            cancellation?.Cancel();
+            Interlocked.Exchange(ref _activePipe, null)?.Dispose();
+            try
+            {
+                await runTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Cooperative cancellation is the normal stop path.
+            }
+            catch (ObjectDisposedException)
+            {
+                // Disposing the pipe unblocks an in-flight read.
+            }
+            finally
+            {
+                cancellation?.Dispose();
+                SetConnected(false);
+                _latestFrame.Clear();
+
+                lock (_lifecycleSync)
                 {
-                    // Disposing the pipe unblocks an in-flight read.
+                    if (ReferenceEquals(_runTask, runTask))
+                    {
+                        _cancellation = null;
+                        _runTask = null;
+                    }
                 }
             }
-
-            cancellation?.Dispose();
-            SetConnected(false);
-            _latestFrame.Clear();
         }
 
         public async Task SendShutdownAsync()
@@ -111,6 +161,16 @@ namespace Blaze.Radar
 
         public void Dispose()
         {
+            lock (_lifecycleSync)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+            }
+
             StopAsync().GetAwaiter().GetResult();
             _writeLock.Dispose();
         }
@@ -152,11 +212,10 @@ namespace Blaze.Radar
                            PipeDirection.InOut,
                            PipeOptions.Asynchronous))
                 {
-                    _activePipe = pipe;
+                    Interlocked.Exchange(ref _activePipe, pipe);
                     try
                     {
                         await pipe.ConnectAsync(_connectTimeoutMilliseconds, cancellationToken).ConfigureAwait(false);
-                        SetConnected(true);
                         LastError = "";
                         await WriteEnvelopeAsync(
                             pipe,
@@ -189,13 +248,14 @@ namespace Blaze.Radar
                         break;
                     }
                     catch (Exception exception) when (
-                        exception is IOException || exception is TimeoutException || exception is UnauthorizedAccessException)
+                        exception is IOException || exception is TimeoutException ||
+                        exception is UnauthorizedAccessException || exception is JsonException)
                     {
                         ReportError(exception.Message);
                     }
                     finally
                     {
-                        _activePipe = null;
+                        Interlocked.CompareExchange(ref _activePipe, null, pipe);
                         SetConnected(false);
                     }
                 }
@@ -210,29 +270,45 @@ namespace Blaze.Radar
             var buffer = new byte[8192];
             while (!cancellationToken.IsCancellationRequested)
             {
-                var count = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
-                if (count == 0)
+                using (var responseTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
-                    throw new EndOfStreamException("RadarBridge closed the Named Pipe connection.");
-                }
-
-                var payloads = decoder.Append(buffer, 0, count);
-                for (var index = 0; index < payloads.Count; index++)
-                {
-                    var json = Encoding.UTF8.GetString(payloads[index]);
-                    var envelope = JsonConvert.DeserializeObject<RadarIpcEnvelope>(json);
-                    if (envelope == null)
+                    responseTimeout.CancelAfter(_serverResponseTimeoutMilliseconds);
+                    try
                     {
-                        throw new InvalidDataException("RadarBridge sent an empty IPC envelope.");
-                    }
+                        var count = await stream.ReadAsync(
+                            buffer,
+                            0,
+                            buffer.Length,
+                            responseTimeout.Token).ConfigureAwait(false);
+                        if (count == 0)
+                        {
+                            throw new EndOfStreamException("RadarBridge closed the Named Pipe connection.");
+                        }
 
-                    if (envelope.protocolVersion != RadarIpcProtocol.Version)
+                        var payloads = decoder.Append(buffer, 0, count);
+                        for (var index = 0; index < payloads.Count; index++)
+                        {
+                            var json = Encoding.UTF8.GetString(payloads[index]);
+                            var envelope = JsonConvert.DeserializeObject<RadarIpcEnvelope>(json);
+                            if (envelope == null)
+                            {
+                                throw new InvalidDataException("RadarBridge sent an empty IPC envelope.");
+                            }
+
+                            if (envelope.protocolVersion != RadarIpcProtocol.Version)
+                            {
+                                throw new InvalidDataException(
+                                    $"IPC protocol {envelope.protocolVersion} is incompatible with Unity SDK protocol {RadarIpcProtocol.Version}.");
+                            }
+
+                            HandleEnvelope(envelope);
+                        }
+                    }
+                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                     {
-                        throw new InvalidDataException(
-                            $"IPC protocol {envelope.protocolVersion} is incompatible with Unity SDK protocol {RadarIpcProtocol.Version}.");
+                        throw new TimeoutException(
+                            $"RadarBridge did not respond for {_serverResponseTimeoutMilliseconds} ms.");
                     }
-
-                    HandleEnvelope(envelope);
                 }
             }
         }
@@ -247,6 +323,7 @@ namespace Blaze.Radar
                     {
                         BridgeVersion = helloAck.bridgeVersion ?? "";
                         DeviceModel = helloAck.deviceModel ?? "";
+                        SetConnected(true);
                     }
                     break;
                 case RadarIpcMessageType.PointerFrame:
@@ -314,13 +391,33 @@ namespace Blaze.Radar
                 return;
             }
 
-            _mainThreadActions.Enqueue(() => ConnectionChanged?.Invoke(connected));
+            _mainThreadActions.Enqueue(() => InvokeSafely(ConnectionChanged, connected));
         }
 
         private void ReportError(string message)
         {
             LastError = message ?? "Unknown IPC error.";
-            _mainThreadActions.Enqueue(() => ErrorReceived?.Invoke(LastError));
+            _mainThreadActions.Enqueue(() => InvokeSafely(ErrorReceived, LastError));
+        }
+
+        private static void InvokeSafely<T>(Action<T> handlers, T value)
+        {
+            if (handlers == null)
+            {
+                return;
+            }
+
+            foreach (Action<T> handler in handlers.GetInvocationList())
+            {
+                try
+                {
+                    handler(value);
+                }
+                catch
+                {
+                    // Unity callbacks must not terminate the IPC worker or block later subscribers.
+                }
+            }
         }
 
         private long NextSequence()

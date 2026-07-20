@@ -26,15 +26,27 @@ namespace Blaze.Radar
 
         private async void Awake()
         {
-            if (settings == null)
+            try
             {
-                settings = RadarRuntimeSettings.LoadOrCreateRuntimeDefaults();
-            }
+                if (settings == null)
+                {
+                    settings = RadarRuntimeSettings.LoadOrCreateRuntimeDefaults();
+                }
 
-            AutoStart = settings.AutoStart;
-            ExitBridgeWithUnity = settings.ExitBridgeWithUnity;
-            _cancellation = new CancellationTokenSource();
-            await EnsureBridgeRunningAsync(_cancellation.Token);
+                AutoStart = settings.AutoStart;
+                ExitBridgeWithUnity = settings.ExitBridgeWithUnity;
+                _cancellation = new CancellationTokenSource();
+                await EnsureBridgeRunningAsync(_cancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Exiting Play Mode while the startup probe is active is a normal shutdown path.
+            }
+            catch (Exception exception)
+            {
+                LastError = $"RadarBridge startup failed: {exception.Message}";
+                UnityEngine.Debug.LogError(LastError, this);
+            }
         }
 
         public async Task EnsureBridgeRunningAsync(CancellationToken cancellationToken)
@@ -75,6 +87,10 @@ namespace Blaze.Radar
                 UseShellExecute = false,
                 CreateNoWindow = true
             });
+            if (_ownedProcess == null)
+            {
+                throw new InvalidOperationException("RadarBridge process could not be created.");
+            }
         }
 
         private string ResolveBridgeExecutable()

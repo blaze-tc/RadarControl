@@ -8,8 +8,12 @@ namespace Blaze.Radar
     [AddComponentMenu("Event/Radar Input Module")]
     public sealed class RadarInputModule : BaseInputModule
     {
-        [SerializeField] private RadarFrameDispatcher dispatcher;
-        [SerializeField] private RadarInputMode inputMode = RadarInputMode.RadarOnly;
+        [Header("Radar Source")]
+        [SerializeField, Tooltip("Dispatcher that supplies normalized radar pointer frames.")]
+        private RadarFrameDispatcher dispatcher;
+
+        [SerializeField, Tooltip("RadarOnly for production; RadarAndMouseDebug keeps the standard mouse available for scene testing.")]
+        private RadarInputMode inputMode = RadarInputMode.RadarOnly;
 
         private readonly Dictionary<int, PointerEventData> _pointerData =
             new Dictionary<int, PointerEventData>();
@@ -40,6 +44,17 @@ namespace Blaze.Radar
 
         public IReadOnlyDictionary<int, PointerEventData> ActivePointers => _pointerData;
 
+        public override bool IsPointerOverGameObject(int pointerId)
+        {
+            return _pointerData.TryGetValue(pointerId, out var data) && data.pointerEnter != null;
+        }
+
+        public override void DeactivateModule()
+        {
+            CancelAllPointers();
+            base.DeactivateModule();
+        }
+
         protected override void OnEnable()
         {
             base.OnEnable();
@@ -54,8 +69,35 @@ namespace Blaze.Radar
         protected override void OnDisable()
         {
             UnsubscribeDispatcher();
-            ReleaseAllPointers();
+            CancelAllPointers();
             base.OnDisable();
+        }
+
+        public void CancelAllPointers()
+        {
+            _pendingFrame = null;
+            var activePointers = new List<PointerEventData>(_pointerData.Values);
+            _pointerData.Clear();
+
+            foreach (var data in activePointers)
+            {
+                if (data.pointerPress != null)
+                {
+                    ExecuteEvents.Execute(data.pointerPress, data, ExecuteEvents.pointerUpHandler);
+                }
+
+                if (data.pointerDrag != null && data.dragging)
+                {
+                    ExecuteEvents.Execute(data.pointerDrag, data, ExecuteEvents.endDragHandler);
+                }
+
+                data.eligibleForClick = false;
+                data.pointerPress = null;
+                data.rawPointerPress = null;
+                data.pointerDrag = null;
+                data.dragging = false;
+                HandlePointerExitAndEnter(data, null);
+            }
         }
 
         public override void Process()
@@ -287,22 +329,14 @@ namespace Blaze.Radar
             HandlePointerExitAndEnter(data, null);
         }
 
-        private void ReleaseAllPointers()
-        {
-            foreach (var data in _pointerData.Values)
-            {
-                ProcessRelease(data, data.pointerCurrentRaycast.gameObject);
-            }
-
-            _pointerData.Clear();
-        }
-
         private void SubscribeDispatcher()
         {
             if (dispatcher != null)
             {
                 dispatcher.PointerFrameReceived -= OnPointerFrameReceived;
                 dispatcher.PointerFrameReceived += OnPointerFrameReceived;
+                dispatcher.ConnectionChanged -= OnConnectionChanged;
+                dispatcher.ConnectionChanged += OnConnectionChanged;
             }
         }
 
@@ -311,6 +345,15 @@ namespace Blaze.Radar
             if (dispatcher != null)
             {
                 dispatcher.PointerFrameReceived -= OnPointerFrameReceived;
+                dispatcher.ConnectionChanged -= OnConnectionChanged;
+            }
+        }
+
+        private void OnConnectionChanged(bool connected)
+        {
+            if (!connected)
+            {
+                CancelAllPointers();
             }
         }
 

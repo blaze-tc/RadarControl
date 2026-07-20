@@ -31,8 +31,8 @@ namespace Blaze.Radar
                 settings.PipeName,
                 settings.ConnectTimeoutMilliseconds,
                 settings.ReconnectDelayMilliseconds);
-            _client.ConnectionChanged += connected => ConnectionChanged?.Invoke(connected);
-            _client.ErrorReceived += message => ErrorReceived?.Invoke(message);
+            _client.ConnectionChanged += connected => InvokeSafely(ConnectionChanged, connected);
+            _client.ErrorReceived += message => InvokeSafely(ErrorReceived, message);
         }
 
         private void Start()
@@ -57,7 +57,7 @@ namespace Blaze.Radar
             if (_client != null && _client.TryConsumeLatestFrame(out var frame))
             {
                 LatestFrame = frame;
-                PointerFrameReceived?.Invoke(frame);
+                InvokeSafely(PointerFrameReceived, frame);
             }
         }
 
@@ -65,9 +65,39 @@ namespace Blaze.Radar
         {
             if (_client != null)
             {
-                await _client.StopAsync();
-                _client.Dispose();
-                _client = null;
+                try
+                {
+                    await _client.StopAsync();
+                    _client.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    UnityEngine.Debug.LogException(exception, this);
+                }
+                finally
+                {
+                    _client = null;
+                }
+            }
+        }
+
+        private void InvokeSafely<T>(Action<T> handlers, T value)
+        {
+            if (handlers == null)
+            {
+                return;
+            }
+
+            foreach (Action<T> handler in handlers.GetInvocationList())
+            {
+                try
+                {
+                    handler(value);
+                }
+                catch (Exception exception)
+                {
+                    UnityEngine.Debug.LogException(exception, this);
+                }
             }
         }
     }

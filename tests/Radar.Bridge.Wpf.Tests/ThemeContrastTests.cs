@@ -1,0 +1,100 @@
+using System.Xml.Linq;
+using System.Windows.Media;
+
+namespace Yuexin.Radar.Bridge.Wpf.Tests;
+
+public sealed class ThemeContrastTests
+{
+    [Fact]
+    public void ApplicationTheme_GivesTextAndComboBoxesReadableForegrounds()
+    {
+        var document = XDocument.Load(Path.Combine(FindRepositoryRoot(), "src", "Radar.Bridge.Wpf", "App.xaml"));
+        var presentation = XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml/presentation");
+        var xaml = XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml");
+
+        var implicitTextStyle = document.Descendants(presentation + "Style").Single(element =>
+            (string?)element.Attribute("TargetType") == "TextBlock" &&
+            element.Attribute(xaml + "Key") is null);
+        Assert.Contains(
+            implicitTextStyle.Elements(presentation + "Setter"),
+            setter => (string?)setter.Attribute("Property") == "Foreground" &&
+                      (string?)setter.Attribute("Value") == "{StaticResource TextPrimaryBrush}");
+
+        var comboStyle = document.Descendants(presentation + "Style").Single(element =>
+            (string?)element.Attribute("TargetType") == "ComboBox");
+        Assert.Contains(comboStyle.Elements(presentation + "Setter"), setter =>
+            (string?)setter.Attribute("Property") == "Foreground" &&
+            (string?)setter.Attribute("Value") == "{StaticResource InputForegroundBrush}");
+        Assert.Contains(comboStyle.Elements(presentation + "Setter"), setter =>
+            (string?)setter.Attribute("Property") == "Background" &&
+            (string?)setter.Attribute("Value") == "{StaticResource InputBackgroundBrush}");
+
+        var comboResources = comboStyle.Element(presentation + "Style.Resources");
+        Assert.NotNull(comboResources);
+        Assert.Contains(comboResources.Elements(presentation + "SolidColorBrush"), brush =>
+            (string?)brush.Attribute(xaml + "Key") == "{x:Static SystemColors.WindowBrushKey}" &&
+            (string?)brush.Attribute("Color") == "{StaticResource InputBackgroundColor}");
+        Assert.Contains(comboResources.Elements(presentation + "SolidColorBrush"), brush =>
+            (string?)brush.Attribute(xaml + "Key") == "{x:Static SystemColors.WindowTextBrushKey}" &&
+            (string?)brush.Attribute("Color") == "{StaticResource InputForegroundColor}");
+        Assert.Contains(comboResources.Elements(presentation + "SolidColorBrush"), brush =>
+            (string?)brush.Attribute(xaml + "Key") == "{x:Static SystemColors.GrayTextBrushKey}" &&
+            (string?)brush.Attribute("Color") == "{StaticResource TextSecondaryColor}");
+
+        var comboTemplate = comboStyle.Descendants(presentation + "ControlTemplate").First();
+        Assert.Contains(comboTemplate.Descendants(presentation + "TextBox"), element =>
+            (string?)element.Attribute(xaml + "Name") == "PART_EditableTextBox" &&
+            (string?)element.Attribute("Foreground") == "{TemplateBinding Foreground}");
+        Assert.Contains(comboTemplate.Descendants(presentation + "Popup"), element =>
+            (string?)element.Attribute(xaml + "Name") == "PART_Popup");
+
+        var foreground = ReadColor(document, presentation, xaml, "InputForegroundColor");
+        var background = ReadColor(document, presentation, xaml, "InputBackgroundColor");
+        Assert.True(
+            ContrastRatio(foreground, background) >= 4.5,
+            $"ComboBox contrast was {ContrastRatio(foreground, background):0.00}:1.");
+    }
+
+    private static Color ReadColor(XDocument document, XNamespace presentation, XNamespace xaml, string key)
+    {
+        var text = document.Descendants(presentation + "Color")
+            .Single(element => (string?)element.Attribute(xaml + "Key") == key)
+            .Value;
+        return (Color)ColorConverter.ConvertFromString(text)!;
+    }
+
+    private static double ContrastRatio(Color first, Color second)
+    {
+        var lighter = Math.Max(RelativeLuminance(first), RelativeLuminance(second));
+        var darker = Math.Min(RelativeLuminance(first), RelativeLuminance(second));
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    private static double RelativeLuminance(Color color)
+    {
+        static double Linearize(byte channel)
+        {
+            var value = channel / 255d;
+            return value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
+        }
+
+        return 0.2126 * Linearize(color.R) +
+               0.7152 * Linearize(color.G) +
+               0.0722 * Linearize(color.B);
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "RadarControl.sln")))
+            {
+                return directory.FullName;
+            }
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate RadarControl.sln from the test output directory.");
+    }
+}

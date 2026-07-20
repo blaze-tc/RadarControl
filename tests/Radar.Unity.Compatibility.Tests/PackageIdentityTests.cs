@@ -30,8 +30,8 @@ public sealed class PackageIdentityTests
         Assert.Contains("Unity.ugui", references);
 
         var sampleSource = File.ReadAllText(
-            Path.Combine(packageRoot, "Samples~", "BasicInteraction", "BasicInteractionBootstrap.cs"));
-        Assert.Contains("using Blaze.Radar;", sampleSource, StringComparison.Ordinal);
+            Path.Combine(packageRoot, "Samples~", "BasicInteraction", "BasicInteractionPresenter.cs"));
+        Assert.Contains("RadarFrameDispatcher", sampleSource, StringComparison.Ordinal);
         Assert.DoesNotContain("Yuexin.Radar.Unity", sampleSource, StringComparison.Ordinal);
     }
 
@@ -48,6 +48,70 @@ public sealed class PackageIdentityTests
             .ToArray();
 
         Assert.Empty(legacySources);
+    }
+
+    [Fact]
+    public void BasicInteractionSample_UsesAnAuthoredSceneAndPersistentUguiEvents()
+    {
+        var sampleRoot = Path.Combine(
+            FindRepositoryRoot(), "UnityPackage", "com.blaze.radar", "Samples~", "BasicInteraction");
+        var scripts = Directory.EnumerateFiles(sampleRoot, "*.cs", SearchOption.AllDirectories)
+            .Select(File.ReadAllText)
+            .ToArray();
+        var scene = File.ReadAllText(Path.Combine(sampleRoot, "BasicInteraction.unity"));
+
+        Assert.All(scripts, source =>
+        {
+            Assert.DoesNotContain("DefaultControls", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("new GameObject", source, StringComparison.Ordinal);
+        });
+        Assert.Contains("m_Name: Demo Canvas", scene, StringComparison.Ordinal);
+        Assert.Contains("m_Name: EventSystem", scene, StringComparison.Ordinal);
+        Assert.Contains("m_Name: 3D Physics Target", scene, StringComparison.Ordinal);
+        Assert.Contains("m_Name: 2D Physics Target", scene, StringComparison.Ordinal);
+        Assert.Contains("m_MethodName: OnRadarButtonClicked", scene, StringComparison.Ordinal);
+        Assert.Contains("m_MethodName: OnToggleChanged", scene, StringComparison.Ordinal);
+        Assert.Contains("m_MethodName: OnSliderChanged", scene, StringComparison.Ordinal);
+        Assert.Contains("m_MethodName: OnScrollChanged", scene, StringComparison.Ordinal);
+
+        foreach (var scriptName in new[] { "BasicInteractionPresenter.cs", "SamplePointerTarget.cs" })
+        {
+            var guidLine = File.ReadLines(Path.Combine(sampleRoot, scriptName + ".meta"))
+                .Single(line => line.StartsWith("guid: ", StringComparison.Ordinal));
+            var guid = guidLine["guid: ".Length..];
+            Assert.Contains($"guid: {guid}", scene, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void UnityLifecycleCallbacks_GuardBridgeStartupFailures()
+    {
+        var launcherSource = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "UnityPackage",
+            "com.blaze.radar",
+            "Runtime",
+            "RadarBridgeLauncher.cs"));
+
+        Assert.Contains("catch (OperationCanceledException)", launcherSource, StringComparison.Ordinal);
+        Assert.Contains("catch (Exception exception)", launcherSource, StringComparison.Ordinal);
+        Assert.Contains("RadarBridge startup failed", launcherSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RadarFrameDispatcher_IsolatesUnityEventSubscriberFailures()
+    {
+        var dispatcherSource = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "UnityPackage",
+            "com.blaze.radar",
+            "Runtime",
+            "RadarFrameDispatcher.cs"));
+
+        Assert.Contains("InvokeSafely(ConnectionChanged", dispatcherSource, StringComparison.Ordinal);
+        Assert.Contains("InvokeSafely(ErrorReceived", dispatcherSource, StringComparison.Ordinal);
+        Assert.Contains("InvokeSafely(PointerFrameReceived", dispatcherSource, StringComparison.Ordinal);
+        Assert.Contains("GetInvocationList()", dispatcherSource, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Sockets;
 using Yuexin.Radar.Contracts;
 using Yuexin.Radar.Protocol;
@@ -16,15 +17,39 @@ public sealed class RadarConnectionService : IAsyncDisposable
     public RadarConnectionService(RadarConnectionOptions options, int minimumScanPointCount = 100)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        if (_options.ReconnectDelays.Count == 0 || _options.ReconnectDelays.Any(delay => delay < TimeSpan.Zero))
+        if (!IPAddress.TryParse(_options.RadarIp, out var radarAddress))
+        {
+            throw new ArgumentException("RadarIp must be a valid IP address.", nameof(options));
+        }
+
+        if (_options.Port is < 1 or > 65535)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "Port must be between 1 and 65535.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_options.LocalIp) &&
+            (!IPAddress.TryParse(_options.LocalIp, out var localAddress) ||
+             localAddress.AddressFamily != radarAddress.AddressFamily))
+        {
+            throw new ArgumentException(
+                "LocalIp must be empty or a valid address with the same address family as RadarIp.",
+                nameof(options));
+        }
+
+        if (_options.ReconnectDelays is null ||
+            _options.ReconnectDelays.Count == 0 ||
+            _options.ReconnectDelays.Any(delay => delay < TimeSpan.Zero))
         {
             throw new ArgumentException("ReconnectDelays must contain at least one non-negative delay.", nameof(options));
         }
 
-        if (_options.DataWarningTimeout <= TimeSpan.Zero ||
+        if (_options.ConnectTimeout <= TimeSpan.Zero ||
+            _options.DataWarningTimeout <= TimeSpan.Zero ||
             _options.DataDisconnectTimeout <= _options.DataWarningTimeout)
         {
-            throw new ArgumentException("Data timeouts must be positive and the disconnect timeout must exceed the warning timeout.", nameof(options));
+            throw new ArgumentException(
+                "Connect and data timeouts must be positive, and the disconnect timeout must exceed the warning timeout.",
+                nameof(options));
         }
 
         _frameBuilder = new RadarScanFrameBuilder(minimumScanPointCount);
@@ -78,7 +103,7 @@ public sealed class RadarConnectionService : IAsyncDisposable
                 catch (Exception exception) when (exception is SocketException or IOException or TimeoutException or OperationCanceledException)
                 {
                     LastError = exception.Message;
-                    ConnectionError?.Invoke(exception);
+                    NotifyConnectionError(exception);
                     if (!_options.AutoReconnect)
                     {
                         SetState(RadarConnectionState.Faulted);
@@ -133,7 +158,7 @@ public sealed class RadarConnectionService : IAsyncDisposable
                 if (await Task.WhenAny(readTask, warningTask).ConfigureAwait(false) == warningTask)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    DataWarning?.Invoke(stopwatch.Elapsed);
+                    InvokeSafely(DataWarning, stopwatch.Elapsed);
                 }
 
                 count = await readTask.ConfigureAwait(false);
@@ -150,7 +175,7 @@ public sealed class RadarConnectionService : IAsyncDisposable
 
             var ownedBytes = buffer.AsMemory(0, count).ToArray();
             Metrics.AddReceivedBytes(count);
-            BytesReceived?.Invoke(ownedBytes);
+            InvokeSafely(BytesReceived, ownedBytes);
 
             var crcBefore = _decoder.CrcErrorCount;
             var discardedBefore = _decoder.DiscardedByteCount;
@@ -161,11 +186,11 @@ public sealed class RadarConnectionService : IAsyncDisposable
 
             foreach (var point in points)
             {
-                PointReceived?.Invoke(point);
+                InvokeSafely(PointReceived, point);
                 var frame = _frameBuilder.AddPoint(point);
                 if (frame is not null)
                 {
-                    ScanFrameReceived?.Invoke(frame);
+                    InvokeSafely(ScanFrameReceived, frame);
                 }
             }
         }
@@ -179,6 +204,47 @@ public sealed class RadarConnectionService : IAsyncDisposable
         }
 
         State = state;
-        StateChanged?.Invoke(state);
+        InvokeSafely(StateChanged, state);
+    }
+
+    private void NotifyConnectionError(Exception exception)
+    {
+        var handlers = ConnectionError;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (Action<Exception> handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler(exception);
+            }
+            catch
+            {
+                // Observer failures must not stop the network state machine.
+            }
+        }
+    }
+
+    private void InvokeSafely<T>(Action<T>? handlers, T value)
+    {
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (Action<T> handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler(value);
+            }
+            catch (Exception exception)
+            {
+                NotifyConnectionError(exception);
+            }
+        }
     }
 }

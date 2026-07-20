@@ -6,10 +6,10 @@
         xmlns:controls="clr-namespace:Yuexin.Radar.Bridge.Wpf.Controls"
         mc:Ignorable="d"
         Title="RadarBridge · F10 / F20 控制台"
-        Width="1440"
-        Height="900"
-        MinWidth="1180"
-        MinHeight="720"
+        Width="1120"
+        Height="700"
+        MinWidth="1100"
+        MinHeight="640"
         WindowStartupLocation="CenterScreen">
     <Grid Background="{StaticResource AppBackgroundBrush}">
         <Grid.RowDefinitions>
@@ -47,11 +47,11 @@
 
         <Grid Grid.Row="1" Margin="14">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300"/>
+                <ColumnDefinition Width="250"/>
                 <ColumnDefinition Width="12"/>
-                <ColumnDefinition Width="*" MinWidth="420"/>
+                <ColumnDefinition Width="*" MinWidth="300"/>
                 <ColumnDefinition Width="12"/>
-                <ColumnDefinition Width="330"/>
+                <ColumnDefinition Width="250"/>
             </Grid.ColumnDefinitions>
 
             <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -327,7 +327,7 @@
                     <TextBlock Text="  ·  FRAME " Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"/>
                     <TextBlock Text="{Binding LastFrameSequence}"/>
                 </StackPanel>
-                <TextBlock Text="Bridge 1.0.0  ·  IPC 1  ·  Windows x64" HorizontalAlignment="Right" VerticalAlignment="Center"
+                <TextBlock Text="Bridge 1.1.1  ·  IPC 1  ·  Windows x64" HorizontalAlignment="Right" VerticalAlignment="Center"
                            Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"/>
             </Grid>
         </Border>

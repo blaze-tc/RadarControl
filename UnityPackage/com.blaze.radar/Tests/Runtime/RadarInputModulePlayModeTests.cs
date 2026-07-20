@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -67,6 +68,68 @@ namespace Blaze.Radar.Tests
             Assert.That(rightClicks, Is.EqualTo(1));
         }
 
+        [UnityTest]
+        public IEnumerator ConnectionLoss_CancelsPressedPointersWithoutClicking()
+        {
+            var clicks = 0;
+            var button = CreateButton("Center", new Vector2(0.5f, 0.5f));
+            button.onClick.AddListener(() => clicks++);
+            yield return null;
+
+            ProcessFrame(Pointer(1, 0.5f, 0.5f, RadarPointerPhase.Down));
+            Assert.That(_module.ActivePointers.Count, Is.EqualTo(1));
+
+            var cancelMethod = typeof(RadarInputModule).GetMethod(
+                "CancelAllPointers",
+                BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(cancelMethod, Is.Not.Null, "RadarInputModule must expose a safe disconnect reset.");
+            cancelMethod.Invoke(_module, null);
+
+            Assert.That(_module.ActivePointers, Is.Empty);
+            Assert.That(clicks, Is.Zero, "Connection loss must not synthesize a click.");
+        }
+
+        [UnityTest]
+        public IEnumerator IsPointerOverGameObject_UsesTheEventSystemRaycastResult()
+        {
+            CreateButton("Center", new Vector2(0.5f, 0.5f));
+            yield return null;
+
+            ProcessFrame(Pointer(42, 0.5f, 0.5f, RadarPointerPhase.Hover));
+
+            Assert.That(_module.IsPointerOverGameObject(42), Is.True);
+            Assert.That(_module.IsPointerOverGameObject(999), Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator DeactivateModule_CancelsPointersWithoutSynthesizingClick()
+        {
+            var clicks = 0;
+            var button = CreateButton("Center", new Vector2(0.5f, 0.5f));
+            button.onClick.AddListener(() => clicks++);
+            yield return null;
+
+            ProcessFrame(Pointer(7, 0.5f, 0.5f, RadarPointerPhase.Down));
+            _module.DeactivateModule();
+
+            Assert.That(_module.ActivePointers, Is.Empty);
+            Assert.That(clicks, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator PointerCancellation_IsSafeWhenAHandlerCancelsAgain()
+        {
+            var button = CreateButton("Center", new Vector2(0.5f, 0.5f));
+            var reentrantHandler = button.gameObject.AddComponent<CancelOnPointerUp>();
+            reentrantHandler.Module = _module;
+            yield return null;
+
+            ProcessFrame(Pointer(9, 0.5f, 0.5f, RadarPointerPhase.Down));
+
+            Assert.DoesNotThrow(_module.CancelAllPointers);
+            Assert.That(_module.ActivePointers, Is.Empty);
+        }
+
         private Button CreateButton(string name, Vector2 normalizedPosition)
         {
             var gameObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
@@ -97,6 +160,16 @@ namespace Blaze.Radar.Tests
                 phase = phase,
                 confidence = 1f
             };
+        }
+
+        private sealed class CancelOnPointerUp : MonoBehaviour, IPointerUpHandler
+        {
+            public RadarInputModule Module { get; set; }
+
+            public void OnPointerUp(PointerEventData eventData)
+            {
+                Module.CancelAllPointers();
+            }
         }
     }
 }

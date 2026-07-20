@@ -8,7 +8,7 @@ public sealed class RadarPipeServerOptions
     public string PipeName { get; set; } = "Yuexin.RadarBridge";
     public TimeSpan HeartbeatTimeout { get; set; } = TimeSpan.FromSeconds(3);
     public Func<HelloAckPayload> HelloAckFactory { get; set; } =
-        () => new HelloAckPayload("1.0.0", "F10", false);
+        () => new HelloAckPayload("1.1.1", "F10", false);
 }
 
 public sealed class RadarPipeServer : IAsyncDisposable
@@ -18,6 +18,9 @@ public sealed class RadarPipeServer : IAsyncDisposable
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private NamedPipeServerStream? _activePipe;
     private long _sequence;
+    private int _isRunning;
+    private int _disposed;
+    private int _resourcesDisposed;
 
     public RadarPipeServer(RadarPipeServerOptions options)
     {
@@ -42,36 +45,69 @@ public sealed class RadarPipeServer : IAsyncDisposable
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken,
-            _disposeCancellation.Token);
-
-        while (!linked.IsCancellationRequested)
+        if (Interlocked.Exchange(ref _isRunning, 1) != 0)
         {
-            await using var pipe = new NamedPipeServerStream(
-                _options.PipeName,
-                PipeDirection.InOut,
-                1,
-                PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous);
-            _activePipe = pipe;
-            try
+            throw new InvalidOperationException("The IPC pipe server is already running.");
+        }
+
+        try
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _disposeCancellation.Token);
+
+            while (!linked.IsCancellationRequested)
             {
-                await pipe.WaitForConnectionAsync(linked.Token).ConfigureAwait(false);
-                await HandleClientAsync(pipe, linked.Token).ConfigureAwait(false);
+                await using var pipe = new NamedPipeServerStream(
+                    _options.PipeName,
+                    PipeDirection.InOut,
+                    1,
+                    PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous);
+                _activePipe = pipe;
+                var authenticated = false;
+                try
+                {
+                    await pipe.WaitForConnectionAsync(linked.Token).ConfigureAwait(false);
+                    await HandleClientAsync(
+                        pipe,
+                        linked.Token,
+                        () => authenticated = true).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (linked.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception exception) when (
+                    exception is IOException or TimeoutException or InvalidDataException or ObjectDisposedException)
+                {
+                    if (authenticated || exception is not EndOfStreamException)
+                    {
+                        NotifyClientError(exception);
+                    }
+                }
+                finally
+                {
+                    if (ReferenceEquals(_activePipe, pipe))
+                    {
+                        _activePipe = null;
+                    }
+
+                    if (authenticated)
+                    {
+                        InvokeSafely(ClientDisconnected);
+                    }
+                }
             }
-            catch (OperationCanceledException) when (linked.IsCancellationRequested)
+        }
+        finally
+        {
+            _activePipe = null;
+            Interlocked.Exchange(ref _isRunning, 0);
+            if (Volatile.Read(ref _disposed) != 0)
             {
-                break;
-            }
-            catch (Exception exception) when (exception is IOException or TimeoutException)
-            {
-                ClientError?.Invoke(exception);
-            }
-            finally
-            {
-                _activePipe = null;
-                ClientDisconnected?.Invoke();
+                DisposeResources();
             }
         }
     }
@@ -86,20 +122,40 @@ public sealed class RadarPipeServer : IAsyncDisposable
             return false;
         }
 
-        await WriteLockedAsync(pipe, envelope, cancellationToken).ConfigureAwait(false);
-        return true;
+        try
+        {
+            await WriteLockedAsync(pipe, envelope, cancellationToken).ConfigureAwait(false);
+            return ReferenceEquals(_activePipe, pipe) && pipe.IsConnected;
+        }
+        catch (Exception exception) when (
+            exception is IOException or InvalidOperationException or ObjectDisposedException)
+        {
+            NotifyClientError(exception);
+            return false;
+        }
     }
 
     public ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return ValueTask.CompletedTask;
+        }
+
         _disposeCancellation.Cancel();
         _activePipe?.Dispose();
-        _disposeCancellation.Dispose();
-        _writeLock.Dispose();
+        if (Volatile.Read(ref _isRunning) == 0)
+        {
+            DisposeResources();
+        }
+
         return ValueTask.CompletedTask;
     }
 
-    private async Task HandleClientAsync(NamedPipeServerStream pipe, CancellationToken cancellationToken)
+    private async Task HandleClientAsync(
+        NamedPipeServerStream pipe,
+        CancellationToken cancellationToken,
+        Action authenticated)
     {
         var first = await ReadWithHeartbeatAsync(pipe, cancellationToken).ConfigureAwait(false);
         var version = IpcProtocolVersion.Validate(first);
@@ -128,11 +184,12 @@ public sealed class RadarPipeServer : IAsyncDisposable
         }
 
         var hello = first.DeserializePayload<HelloPayload>();
-        ClientConnected?.Invoke(hello);
         await WriteLockedAsync(
             pipe,
             IpcEnvelope.Create(IpcMessageType.HelloAck, NextSequence(), _options.HelloAckFactory()),
             cancellationToken).ConfigureAwait(false);
+        authenticated();
+        InvokeSafely(ClientConnected, hello);
 
         while (pipe.IsConnected && !cancellationToken.IsCancellationRequested)
         {
@@ -163,10 +220,10 @@ public sealed class RadarPipeServer : IAsyncDisposable
                         cancellationToken).ConfigureAwait(false);
                     break;
                 case IpcMessageType.Shutdown:
-                    MessageReceived?.Invoke(message);
+                    InvokeSafely(MessageReceived, message);
                     return;
                 default:
-                    MessageReceived?.Invoke(message);
+                    InvokeSafely(MessageReceived, message);
                     break;
             }
         }
@@ -205,4 +262,76 @@ public sealed class RadarPipeServer : IAsyncDisposable
     }
 
     private long NextSequence() => Interlocked.Increment(ref _sequence);
+
+    private void DisposeResources()
+    {
+        if (Interlocked.Exchange(ref _resourcesDisposed, 1) != 0)
+        {
+            return;
+        }
+
+        _disposeCancellation.Dispose();
+        _writeLock.Dispose();
+    }
+
+    private void NotifyClientError(Exception exception)
+    {
+        var handlers = ClientError;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (Action<Exception> handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler(exception);
+            }
+            catch
+            {
+                // Diagnostics subscribers must not terminate the IPC accept loop.
+            }
+        }
+    }
+
+    private void InvokeSafely(Action? handlers)
+    {
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (Action handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler();
+            }
+            catch (Exception exception)
+            {
+                NotifyClientError(exception);
+            }
+        }
+    }
+
+    private void InvokeSafely<T>(Action<T>? handlers, T value)
+    {
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (Action<T> handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler(value);
+            }
+            catch (Exception exception)
+            {
+                NotifyClientError(exception);
+            }
+        }
+    }
 }
