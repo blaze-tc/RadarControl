@@ -1,4 +1,4 @@
-using Yuexin.Radar.Unity.Internal;
+using Blaze.Radar.Internal;
 
 namespace Radar.Unity.Compatibility.Tests;
 
@@ -7,7 +7,7 @@ public sealed class BridgePathResolverTests
     [Fact]
     public void ResolveEditorExecutable_UsesEmbeddedPublishWhenOverrideIsEmpty()
     {
-        var packageRoot = Path.Combine("C:\\", "project", "Library", "PackageCache", "com.yuexin.radar@1.0.1");
+        var packageRoot = Path.Combine("C:\\", "project", "Library", "PackageCache", "com.blaze.radar@1.1.0");
 
         var executable = BridgePathResolver.ResolveEditorExecutable(string.Empty, packageRoot);
 

@@ -9,7 +9,7 @@ public sealed class EmbeddedBridgePayloadTests
         var publishDirectory = Path.Combine(
             repositoryRoot,
             "UnityPackage",
-            "com.yuexin.radar",
+            "com.blaze.radar",
             "Bridge~",
             "win-x64");
 

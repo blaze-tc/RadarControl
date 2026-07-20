@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$executable = Join-Path $repositoryRoot 'UnityPackage\com.yuexin.radar\Bridge~\win-x64\RadarBridge.exe'
+$executable = Join-Path $repositoryRoot 'UnityPackage\com.blaze.radar\Bridge~\win-x64\RadarBridge.exe'
 $smokeDirectory = Join-Path $repositoryRoot 'tmp\embedded-bridge-smoke'
 $profile = Join-Path $smokeDirectory 'profile.json'
 $parentProcess = $null

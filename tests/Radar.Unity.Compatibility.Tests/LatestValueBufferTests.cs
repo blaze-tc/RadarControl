@@ -1,6 +1,6 @@
-using Yuexin.Radar.Unity.Internal;
+using Blaze.Radar.Internal;
 
-namespace Yuexin.Radar.Unity.Compatibility.Tests;
+namespace Blaze.Radar.Compatibility.Tests;
 
 public sealed class LatestValueBufferTests
 {

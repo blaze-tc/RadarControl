@@ -1,6 +1,6 @@
 # RadarControl 安装与首次使用
 
-本文用于把 Yuexin Radar SDK 安装到现有 Unity 项目，并验证包内自带的 `RadarBridge.exe` 可以正常启动。推荐使用固定版本 `v1.0.1`，便于团队成员和构建机获得完全相同的内容。
+本文用于把 Blaze Radar SDK 安装到现有 Unity 项目，并验证包内自带的 `RadarBridge.exe` 可以正常启动。推荐使用固定版本 `v1.1.0`，便于团队成员和构建机获得完全相同的内容。
 
 ## 1. 环境要求
 
@@ -12,6 +12,17 @@
 
 包内已经包含完整的 .NET 8 self-contained `RadarBridge.exe` 运行目录，测试电脑不需要另外安装 .NET Runtime。当前 Bridge 只支持 Windows x64。
 
+### 从 1.0.1 旧包迁移
+
+`v1.1.0` 已把包名从 `com.yuexin.radar` 改为 `com.blaze.radar`，C# 公共命名空间改为 `Blaze.Radar`。如果项目导入过旧版 Sample，Unity 不会在移除旧包时自动删除复制到 `Assets` 的 Sample；它会继续编译并产生旧命名空间错误。升级前请：
+
+1. 在 Package Manager 中移除 `com.yuexin.radar`，或从 `Packages/manifest.json` 删除旧条目。
+2. 删除旧的 `Assets/Samples/Yuexin Radar SDK/1.0.1` 目录。
+3. 安装下文的 `com.blaze.radar#v1.1.0`。
+4. 从 **Blaze Radar SDK** 重新导入 **Basic Interaction** Sample。
+
+Named Pipe 名称 `Yuexin.RadarBridge` 是 Bridge 与 Unity 的通信协议标识，为兼容现有 Bridge 保持不变；不要把它改为包名。
+
 ## 2. 推荐安装：Unity Package Manager Git URL
 
 1. 打开目标 Unity 项目。
@@ -20,16 +31,16 @@
 4. 粘贴以下固定版本地址：
 
    ```text
-   https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.yuexin.radar#v1.0.1
+   https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.blaze.radar#v1.1.0
    ```
 
 5. 点击 **Add**，等待约 161 MB 的 SDK 和 Bridge 下载、解析与导入完成。
-6. 在 Package Manager 中确认出现 **Yuexin Radar SDK 1.0.1**。
+6. 在 Package Manager 中确认出现 **Blaze Radar SDK 1.1.0**。
 
 如需始终跟随最新开发版本，可以使用下面的地址，但正式项目不建议锁定到会变化的 `main`：
 
 ```text
-https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.yuexin.radar#main
+https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.blaze.radar#main
 ```
 
 ## 3. 通过 manifest.json 安装
@@ -39,7 +50,7 @@ https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.yuexin.radar
 ```json
 {
   "dependencies": {
-    "com.yuexin.radar": "https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.yuexin.radar#v1.0.1"
+    "com.blaze.radar": "https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.blaze.radar#v1.1.0"
   }
 }
 ```
@@ -53,21 +64,21 @@ https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.yuexin.radar
 ```powershell
 git clone https://github.com/blaze-tc/RadarControl.git
 cd RadarControl
-git checkout v1.0.1
+git checkout v1.1.0
 ```
 
 然后在 Unity Package Manager 中选择 **+ > Add package from disk**，打开：
 
 ```text
-RadarControl/UnityPackage/com.yuexin.radar/package.json
+RadarControl/UnityPackage/com.blaze.radar/package.json
 ```
 
 本地安装会直接引用该目录。移动或删除克隆目录后，Unity 项目将无法继续解析这个包。
 
 ## 5. 安装后的场景配置
 
-1. 在 Package Manager 中选择 **Yuexin Radar SDK**，展开 **Samples**，导入 **Basic Interaction**。首次接入建议先用 Sample 验证，再集成业务场景。
-2. 执行 **Tools > Yuexin Radar > Create or Select Settings**。Unity 会创建 `Assets/Resources/RadarRuntimeSettings.asset`。
+1. 在 Package Manager 中选择 **Blaze Radar SDK**，展开 **Samples**，导入 **Basic Interaction**。首次接入建议先用 Sample 验证，再集成业务场景。
+2. 执行 **Tools > Blaze Radar > Create or Select Settings**。Unity 会创建 `Assets/Resources/RadarRuntimeSettings.asset`。
 3. 建议首次测试使用以下设置：
 
    - `Auto Start`：开启。
@@ -76,7 +87,7 @@ RadarControl/UnityPackage/com.yuexin.radar/package.json
    - `Editor Bridge Executable`：留空，自动使用包内 Bridge。
    - `Profile Path`：留空，使用 Bridge 的默认用户配置。
 
-4. 打开要接入的场景，执行 **GameObject > Yuexin Radar > Create Runtime**。该命令会创建运行对象和 `RadarInputModule`，并禁用已有的 `StandaloneInputModule`。
+4. 打开要接入的场景，执行 **GameObject > Blaze Radar > Create Runtime**。该命令会创建运行对象和 `RadarInputModule`，并禁用已有的 `StandaloneInputModule`。
 5. 检查交互对象：
 
    - Screen Space Canvas 必须有 `GraphicRaycaster`。
@@ -126,7 +137,7 @@ RadarBridge/
 卸载时：
 
 1. 退出 Play Mode，确认 `RadarBridge.exe` 已关闭。
-2. 在 Package Manager 中选择 **Yuexin Radar SDK > Remove**。
+2. 在 Package Manager 中选择 **Blaze Radar SDK > Remove**。
 3. 如不再需要，可手动删除 `Assets/Resources/RadarRuntimeSettings.asset` 和导入到 `Assets/Samples/` 下的 Basic Interaction Sample。
 
 ## 9. 常见安装问题
@@ -135,7 +146,7 @@ RadarBridge/
 
 - 在 PowerShell 中执行 `git --version`，确认 Git 可用。
 - 确认能访问 `https://github.com/blaze-tc/RadarControl`。
-- URL 中必须同时保留 `?path=/UnityPackage/com.yuexin.radar` 和 `#v1.0.1`。
+- URL 中必须同时保留 `?path=/UnityPackage/com.blaze.radar` 和 `#v1.1.0`。
 - 安装失败后可重启 Unity，再从 Package Manager 重新添加。
 
 ### Bridge 没有自动启动
@@ -157,7 +168,7 @@ RadarBridge/
 
 ## 10. 相关链接
 
-- [GitHub Release v1.0.1](https://github.com/blaze-tc/RadarControl/releases/tag/v1.0.1)
+- [GitHub Release v1.1.0](https://github.com/blaze-tc/RadarControl/releases/tag/v1.1.0)
 - [Unity 集成说明](docs/unity-integration.md)
 - [故障排查与网络配置](docs/troubleshooting.md)
 - [测试报告](docs/test-report.md)

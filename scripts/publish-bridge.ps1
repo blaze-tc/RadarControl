@@ -35,7 +35,7 @@ try {
     }
 
     if (-not $SkipUnityPackageEmbedding) {
-        $packageRoot = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot 'UnityPackage\com.yuexin.radar'))
+        $packageRoot = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot 'UnityPackage\com.blaze.radar'))
         $embeddedDirectory = [System.IO.Path]::GetFullPath((Join-Path $packageRoot "Bridge~\$Runtime"))
         $packagePrefix = $packageRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
         if (-not $embeddedDirectory.StartsWith($packagePrefix, [System.StringComparison]::OrdinalIgnoreCase)) {

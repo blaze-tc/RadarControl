@@ -1,0 +1,27 @@
+{
+  "name": "com.blaze.radar",
+  "version": "1.1.0",
+  "displayName": "Blaze Radar SDK",
+  "description": "FaseLase F10/F20 self-contained RadarBridge, Named Pipe client and multi-pointer EventSystem input for Unity.",
+  "unity": "2021.3",
+  "keywords": [
+    "radar",
+    "input",
+    "multipointer",
+    "faselase"
+  ],
+  "author": {
+    "name": "Blaze"
+  },
+  "dependencies": {
+    "com.unity.ugui": "1.0.0",
+    "com.unity.nuget.newtonsoft-json": "3.0.2"
+  },
+  "samples": [
+    {
+      "displayName": "Basic Interaction",
+      "description": "Button, Toggle, Slider, ScrollRect, 3D, 2D and dual-pointer interaction sample.",
+      "path": "Samples~/BasicInteraction"
+    }
+  ]
+}
