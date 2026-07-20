@@ -2,6 +2,12 @@
 
 FaseLase F10/F20 雷达桥接程序与 Unity 多指针交互 SDK。默认型号为 F10；WPF `RadarBridge.exe` 独占雷达 TCP 连接，Unity 只通过 Named Pipe 消费标准化指针帧。
 
+首次安装请直接阅读：[安装说明与首次使用](INSTALL.md)。推荐的 Unity Git URL 为：
+
+```text
+https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.yuexin.radar#v1.0.1
+```
+
 ## 快速开始
 
 环境：Windows 10/11 x64、.NET 8 SDK；Unity 包最低版本为 Unity 2021.3 LTS。
@@ -27,6 +33,7 @@ Unity 可通过 Package Manager 的 Git URL 或本地包方式导入 `UnityPacka
 
 ## 文档
 
+- [安装说明与首次使用](INSTALL.md)
 - [架构与线程模型](docs/architecture.md)
 - [雷达及 IPC 协议](docs/protocol.md)
 - [区域与四点标定](docs/calibration.md)

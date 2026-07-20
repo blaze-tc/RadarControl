@@ -1,8 +1,10 @@
 # Unity 集成
 
+面向首次使用者的完整安装、场景配置和验收步骤见 [安装说明与首次使用](../INSTALL.md)。
+
 ## 安装
 
-1. Unity Package Manager 选择 **Install package from git URL**，使用带 `?path=/UnityPackage/com.yuexin.radar` 的仓库 URL；也可以选择 **Add package from disk** 并打开 `UnityPackage/com.yuexin.radar/package.json`。
+1. Unity Package Manager 选择 **Install package from git URL**，推荐使用固定版本地址 `https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.yuexin.radar#v1.0.1`；也可以选择 **Add package from disk** 并打开 `UnityPackage/com.yuexin.radar/package.json`。
 2. 等待约 161 MB 的 self-contained Bridge 与 SDK 下载、导入完成。
 3. 导入 **Basic Interaction** Sample。
 4. 通过 **Tools > Yuexin Radar > Create or Select Settings** 创建 Settings；`Editor Bridge Executable` 留空时自动使用包内 Bridge，需要调试其他版本时才设置覆盖路径。
