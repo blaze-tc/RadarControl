@@ -37,6 +37,7 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
     private Task? _replayTask;
     private RadarRecordingWriter? _recordingWriter;
     private Stream? _recordingStream;
+    private int _disposed;
     private int _infrastructureStarted;
     private long _ipcSequence;
     private UnityClientStatus _unityStatus = UnityClientStatus.Disconnected;
@@ -264,6 +265,11 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
 
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
         _lifetimeCancellation.Cancel();
         await DisconnectAsync().ConfigureAwait(false);
         await StopSimulationAsync().ConfigureAwait(false);

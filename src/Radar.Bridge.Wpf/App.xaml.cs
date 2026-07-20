@@ -40,8 +40,7 @@ public partial class App : Application
                 .AddConsole()
                 .AddProvider(new AsyncFileLoggerProvider(AsyncFileLoggerProvider.GetDefaultLogPath())));
             services.AddSingleton(_configuration);
-            services.AddSingleton<RadarBridgeRuntime>();
-            services.AddSingleton<IRadarBridgeRuntime>(provider => provider.GetRequiredService<RadarBridgeRuntime>());
+            services.AddSingleton<IRadarBridgeRuntime, RadarBridgeRuntime>();
             services.AddSingleton<MainViewModel>();
             services.AddSingleton<MainWindow>();
             _services = services.BuildServiceProvider(validateScopes: true);
@@ -76,11 +75,6 @@ public partial class App : Application
     {
         try
         {
-            if (_services?.GetService<IRadarBridgeRuntime>() is { } runtime)
-            {
-                runtime.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            }
-
             if (_configuration is not null && _configurationPath is not null)
             {
                 RadarConfigurationStore.SaveAsync(_configurationPath, _configuration).GetAwaiter().GetResult();
@@ -88,8 +82,15 @@ public partial class App : Application
         }
         finally
         {
-            _services?.Dispose();
-            base.OnExit(eventArgs);
+            try
+            {
+                _services?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                _services = null;
+            }
+            finally
+            {
+                base.OnExit(eventArgs);
+            }
         }
     }
 

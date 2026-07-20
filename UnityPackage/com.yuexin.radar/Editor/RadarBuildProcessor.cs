@@ -1,8 +1,10 @@
 using System;
 using System.IO;
+using UnityEditor.PackageManager;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
+using Yuexin.Radar.Unity.Internal;
 
 namespace Yuexin.Radar.Unity.Editor
 {
@@ -14,23 +16,13 @@ namespace Yuexin.Radar.Unity.Editor
 
         public void OnPostprocessBuild(BuildReport report)
         {
-            var sourceDirectory = UnityEditor.EditorPrefs.GetString(BridgeSourceEditorPreference, "");
-            if (string.IsNullOrWhiteSpace(sourceDirectory))
-            {
-                sourceDirectory = Path.GetFullPath(Path.Combine(
-                    Application.dataPath,
-                    "..",
-                    "artifacts",
-                    "publish",
-                    "RadarBridge",
-                    "win-x64"));
-            }
+            var sourceDirectory = ResolveBridgeSourceDirectory();
 
             var sourceExecutable = Path.Combine(sourceDirectory, "RadarBridge.exe");
             if (!File.Exists(sourceExecutable))
             {
                 throw new BuildFailedException(
-                    $"RadarBridge.exe is missing. Publish the Bridge first or set Tools > Yuexin Radar > Bridge Publish Directory. Expected: {sourceExecutable}");
+                    $"RadarBridge.exe is missing. Reinstall the Yuexin Radar package or set Tools > Yuexin Radar > Bridge Publish Directory. Expected: {sourceExecutable}");
             }
 
             var playerDirectory = Path.GetDirectoryName(report.summary.outputPath)
@@ -47,12 +39,44 @@ namespace Yuexin.Radar.Unity.Editor
         [UnityEditor.MenuItem("Tools/Yuexin Radar/Bridge Publish Directory")]
         private static void ChooseBridgePublishDirectory()
         {
-            var current = UnityEditor.EditorPrefs.GetString(BridgeSourceEditorPreference, Application.dataPath);
+            var current = UnityEditor.EditorPrefs.GetString(BridgeSourceEditorPreference, "");
+            if (string.IsNullOrWhiteSpace(current))
+            {
+                current = ResolveBridgeSourceDirectory();
+            }
+
             var selected = UnityEditor.EditorUtility.OpenFolderPanel("Select RadarBridge publish directory", current, "");
             if (!string.IsNullOrWhiteSpace(selected))
             {
                 UnityEditor.EditorPrefs.SetString(BridgeSourceEditorPreference, selected);
             }
+        }
+
+        private static string ResolveBridgeSourceDirectory()
+        {
+            var configured = UnityEditor.EditorPrefs.GetString(BridgeSourceEditorPreference, "");
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                return Path.GetFullPath(configured);
+            }
+
+            var packageInfo = PackageInfo.FindForAssembly(typeof(RadarBridgeLauncher).Assembly);
+            if (packageInfo != null && !string.IsNullOrWhiteSpace(packageInfo.resolvedPath))
+            {
+                var embedded = BridgePathResolver.GetEmbeddedPublishDirectory(packageInfo.resolvedPath);
+                if (File.Exists(Path.Combine(embedded, BridgePathResolver.ExecutableName)))
+                {
+                    return embedded;
+                }
+            }
+
+            return Path.GetFullPath(Path.Combine(
+                Application.dataPath,
+                "..",
+                "artifacts",
+                "publish",
+                "RadarBridge",
+                BridgePathResolver.RuntimeIdentifier));
         }
 
         private static void CopyDirectory(string source, string destination)

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "device": {
+    "deviceModel": "F10",
+    "radarIp": "192.168.0.100",
+    "port": 8487,
+    "localIp": "",
+    "autoReconnect": true
+  },
+  "transform": {
+    "rotationDegrees": 0,
+    "flipX": false,
+    "flipY": false,
+    "offsetXMeters": 0,
+    "offsetYMeters": 0
+  },
+  "range": {
+    "minimumDistanceMeters": 0.1,
+    "maximumDistanceMeters": 5,
+    "minimumAngleDegrees": 0,
+    "maximumAngleDegrees": 360,
+    "activePolygon": [],
+    "maskedPolygons": [],
+    "edgeDeadZones": {
+      "leftMeters": 0,
+      "rightMeters": 0,
+      "topMeters": 0,
+      "bottomMeters": 0
+    }
+  },
+  "clustering": {
+    "baseGapMeters": 0.08,
+    "distanceScale": 0.015,
+    "minimumClusterPointCount": 2,
+    "maximumClusterWidthMeters": 0.8
+  },
+  "tracking": {
+    "confirmFrames": 2,
+    "lostFrames": 3,
+    "maximumAssociationDistanceMeters": 0.35,
+    "smoothingAlpha": 0.5
+  },
+  "interaction": {
+    "mode": "touch",
+    "dwellMilliseconds": 800,
+    "dwellRadiusNormalized": 0.03,
+    "dragThresholdNormalized": 0.015,
+    "minimumPressMilliseconds": 30,
+    "maximumClickMovementNormalized": 0.03
+  },
+  "ipc": {
+    "pipeName": "Yuexin.RadarBridge",
+    "sendRawPoints": false,
+    "sendClusters": false
+  },
+  "calibration": {
+    "isValid": false,
+    "deviceModel": "F10",
+    "physicalCorners": [],
+    "homographyMatrix": [],
+    "createdAt": null,
+    "transformSnapshot": {
+      "rotationDegrees": 0,
+      "flipX": false,
+      "flipY": false,
+      "offsetXMeters": 0,
+      "offsetYMeters": 0
+    },
+    "maximumCornerError": 0
+  }
+}

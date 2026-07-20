@@ -7,6 +7,20 @@ namespace Yuexin.Radar.Bridge.Wpf.Tests;
 public sealed class RadarBridgeRuntimeTests
 {
     [Fact]
+    public async Task DisposeAsync_CanBeCalledMoreThanOnce()
+    {
+        var configuration = RadarAppConfiguration.CreateDefault();
+        configuration.Ipc.PipeName = "RadarControl.Tests." + Guid.NewGuid().ToString("N");
+        var runtime = new RadarBridgeRuntime(
+            configuration,
+            NullLogger<RadarBridgeRuntime>.Instance);
+
+        await runtime.StartInfrastructureAsync();
+        await runtime.DisposeAsync();
+        await runtime.DisposeAsync();
+    }
+
+    [Fact]
     public async Task Simulation_ProducesProcessedSnapshotsAndStopsCooperatively()
     {
         var configuration = RadarAppConfiguration.CreateDefault();

@@ -141,7 +141,7 @@
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ReceiveRate}" HorizontalAlignment="Right"/>
                                 <TextBlock Grid.Row="2" Text="CRC / 丢弃" Style="{StaticResource CaptionStyle}"/>
                                 <TextBlock Grid.Row="2" Grid.Column="1" HorizontalAlignment="Right">
-                                    <Run Text="{Binding CrcErrorCount}"/><Run Text=" / "/><Run Text="{Binding DiscardedByteCount}"/>
+                                    <Run Text="{Binding CrcErrorCount, Mode=OneWay}"/><Run Text=" / "/><Run Text="{Binding DiscardedByteCount, Mode=OneWay}"/>
                                 </TextBlock>
                             </Grid>
                         </StackPanel>

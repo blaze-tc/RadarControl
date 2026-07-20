@@ -4,6 +4,10 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using Yuexin.Radar.Unity.Internal;
+#if UNITY_EDITOR
+using UnityEditor.PackageManager;
+#endif
 
 namespace Yuexin.Radar.Unity
 {
@@ -78,10 +82,16 @@ namespace Yuexin.Radar.Unity
 #if UNITY_EDITOR
             if (!string.IsNullOrWhiteSpace(settings.EditorBridgeExecutable))
             {
-                return Path.GetFullPath(settings.EditorBridgeExecutable);
+                return BridgePathResolver.ResolveEditorExecutable(settings.EditorBridgeExecutable, null);
+            }
+
+            var packageInfo = PackageInfo.FindForAssembly(typeof(RadarBridgeLauncher).Assembly);
+            if (packageInfo != null && !string.IsNullOrWhiteSpace(packageInfo.resolvedPath))
+            {
+                return BridgePathResolver.ResolveEditorExecutable(string.Empty, packageInfo.resolvedPath);
             }
 #endif
-            return Path.Combine(AppContext.BaseDirectory, "RadarBridge", "RadarBridge.exe");
+            return BridgePathResolver.ResolvePlayerExecutable(AppContext.BaseDirectory);
         }
 
         private void OnApplicationQuit()

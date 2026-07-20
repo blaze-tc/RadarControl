@@ -58,21 +58,22 @@ dotnet test RadarControl.sln --no-restore
 
 ## 阶段 8：WPF Bridge
 
-- `Radar.Bridge.Wpf.Tests`：11/11 通过。
-- 覆盖主 ViewModel 的型号/网卡/区域/标定状态、坐标视口、模拟数据、回放暂停与单步、屏蔽区编辑，以及异步日志退出刷盘。
+- `Radar.Bridge.Wpf.Tests`：13/13 通过。
+- 覆盖主 ViewModel 的型号/网卡/区域/标定状态、坐标视口、模拟数据、回放暂停与单步、屏蔽区编辑、只读指标绑定的真实窗口启动，以及运行时幂等释放。
 - Release WPF 编译通过；点云由单一自绘 Surface 显示 Raw/Valid/Cluster/Target、盲区、网格、有效区与屏蔽区。
 
 ## 阶段 9：Unity UPM
 
-- `Radar.Unity.Compatibility.Tests`：3/3 通过，直接编译包内长度前缀解码器和容量 1 最新值缓存的共享源码。
+- `Radar.Unity.Compatibility.Tests`：7/7 通过，直接编译包内长度前缀解码器、容量 1 最新值缓存和 Bridge 路径解析器，并验证内嵌 self-contained Bridge 与 F10/F20 Profile 完整存在。
 - UPM 包包含 Launcher、PipeClient、FrameDispatcher、RadarInputModule、BuildProcessor、SettingsProvider、PlayMode 测试与 Basic Interaction Sample。
 - 当前工作区无宿主 Unity 工程，因此包内 PlayMode 测试尚未由 Unity Test Runner 执行。
 
 ## 阶段 10：构建与发布
 
-- 命令：`.\scripts\build.ps1`、`.\scripts\test.ps1 -NoBuild`、`.\scripts\publish-bridge.ps1`。
+- 命令：`.\scripts\build.ps1`、`.\scripts\test.ps1 -NoBuild`、`.\scripts\publish-bridge.ps1`、`.\scripts\test-embedded-bridge.ps1`。
 - Release 全解决方案编译：0 警告、0 错误。
-- `win-x64` self-contained 发布产物包含 `RadarBridge.exe` 与 `profiles/default-profile.json`。
+- `win-x64` self-contained 发布产物包含 `RadarBridge.exe` 与 F10/F20 Profile，并自动同步到 UPM 包的 `Bridge~/win-x64/`。
+- 内嵌 EXE 已验证可创建正常 WPF 主窗口，并在 Unity 父进程结束后以退出码 0 自动关闭。
 
 ## 当前全量结果
 
@@ -81,9 +82,9 @@ dotnet test RadarControl.sln --no-restore
 - `Radar.Configuration.Tests`：6/6。
 - `Radar.Processing.Tests`：23/23。
 - `Radar.Ipc.Tests`：7/7。
-- `Radar.Bridge.Wpf.Tests`：11/11。
-- `Radar.Unity.Compatibility.Tests`：3/3。
-- 合计：77/77 通过，0 失败，0 跳过。
+- `Radar.Bridge.Wpf.Tests`：13/13。
+- `Radar.Unity.Compatibility.Tests`：7/7。
+- 合计：83/83 通过，0 失败，0 跳过。
 
 ## 现场尚待执行
 
