@@ -1,0 +1,17 @@
+{
+  "name": "Yuexin.Radar.Runtime",
+  "rootNamespace": "Yuexin.Radar.Unity",
+  "references": [
+    "Unity.ugui",
+    "Unity.Newtonsoft.Json"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

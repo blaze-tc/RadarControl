@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "device": {
+    "deviceModel": "F20",
+    "radarIp": "192.168.0.100",
+    "port": 8487,
+    "localIp": "",
+    "autoReconnect": true
+  },
+  "range": {
+    "minimumDistanceMeters": 0.1,
+    "maximumDistanceMeters": 5,
+    "minimumAngleDegrees": 0,
+    "maximumAngleDegrees": 360,
+    "activePolygon": [],
+    "maskedPolygons": [],
+    "edgeDeadZones": {
+      "leftMeters": 0,
+      "rightMeters": 0,
+      "topMeters": 0,
+      "bottomMeters": 0
+    }
+  }
+}
