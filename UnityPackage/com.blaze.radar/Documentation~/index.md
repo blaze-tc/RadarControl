@@ -1,4 +1,4 @@
-# Blaze Radar SDK 1.1.3
+# Blaze Radar SDK 1.1.4
 
 The package connects Unity to the external `RadarBridge.exe` over the `Yuexin.RadarBridge` Named Pipe. Unity never opens the radar TCP socket.
 
@@ -25,4 +25,4 @@ RadarBridge/
 Game_Data/
 ```
 
-The build fails with an explicit path if `RadarBridge.exe` is missing. Package developers can regenerate both the repository artifact and embedded payload with `scripts/publish-bridge.ps1`.
+The processor always reads Bridge from the currently resolved package, removes any previous player-side `RadarBridge` directory, and verifies the package/Bridge version plus the copied executable SHA-256. The build fails instead of silently shipping a stale or incomplete payload. Package developers can regenerate both the repository artifact and embedded payload with `scripts/publish-bridge.ps1`.

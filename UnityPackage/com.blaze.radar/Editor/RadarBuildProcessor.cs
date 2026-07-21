@@ -1,82 +1,111 @@
 using System;
 using System.IO;
-using UnityEditor.PackageManager;
+using System.Security.Cryptography;
+using Blaze.Radar.Internal;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
+using UnityEditor.PackageManager;
 using UnityEngine;
-using Blaze.Radar.Internal;
 
 namespace Blaze.Radar.Editor
 {
     public sealed class RadarBuildProcessor : IPostprocessBuildWithReport
     {
-        private const string BridgeSourceEditorPreference = "Blaze.Radar.BridgePublishDirectory";
+        private const string BridgeVersionFileName = "bridge-version.txt";
 
         public int callbackOrder => 1000;
 
         public void OnPostprocessBuild(BuildReport report)
         {
-            var sourceDirectory = ResolveBridgeSourceDirectory();
+            var sourceDirectory = ResolveCurrentPackageBridgeDirectory();
+            ValidateBridgeVersion(sourceDirectory, "package source");
 
-            var sourceExecutable = Path.Combine(sourceDirectory, "RadarBridge.exe");
-            if (!File.Exists(sourceExecutable))
-            {
-                throw new BuildFailedException(
-                    $"RadarBridge.exe is missing. Reinstall the Blaze Radar package or set Tools > Blaze Radar > Bridge Publish Directory. Expected: {sourceExecutable}");
-            }
-
+            var sourceExecutable = Path.Combine(sourceDirectory, BridgePathResolver.ExecutableName);
             var playerDirectory = Path.GetDirectoryName(report.summary.outputPath)
                 ?? throw new BuildFailedException("Unable to resolve the player output directory.");
             var destinationDirectory = Path.Combine(playerDirectory, "RadarBridge");
+
+            if (Directory.Exists(destinationDirectory))
+            {
+                Directory.Delete(destinationDirectory, recursive: true);
+            }
+
             CopyDirectory(sourceDirectory, destinationDirectory);
+            ValidateBridgeVersion(destinationDirectory, "player destination");
 
-            if (!File.Exists(Path.Combine(destinationDirectory, "RadarBridge.exe")))
+            var destinationExecutable = Path.Combine(destinationDirectory, BridgePathResolver.ExecutableName);
+            var sourceHash = ComputeSha256(sourceExecutable);
+            var destinationHash = ComputeSha256(destinationExecutable);
+            if (!string.Equals(sourceHash, destinationHash, StringComparison.OrdinalIgnoreCase))
             {
-                throw new BuildFailedException("RadarBridge copy completed without RadarBridge.exe.");
+                throw new BuildFailedException(
+                    $"RadarBridge copy verification failed. Source SHA-256 {sourceHash}, destination SHA-256 {destinationHash}.");
             }
+
+            Debug.Log(
+                $"Blaze Radar {UnitySdkVersion.Value}: copied the current package Bridge to '{destinationDirectory}'. " +
+                $"RadarBridge.exe SHA-256: {destinationHash}");
         }
 
-        [UnityEditor.MenuItem("Tools/Blaze Radar/Bridge Publish Directory")]
-        private static void ChooseBridgePublishDirectory()
+        private static string ResolveCurrentPackageBridgeDirectory()
         {
-            var current = UnityEditor.EditorPrefs.GetString(BridgeSourceEditorPreference, "");
-            if (string.IsNullOrWhiteSpace(current))
-            {
-                current = ResolveBridgeSourceDirectory();
-            }
-
-            var selected = UnityEditor.EditorUtility.OpenFolderPanel("Select RadarBridge publish directory", current, "");
-            if (!string.IsNullOrWhiteSpace(selected))
-            {
-                UnityEditor.EditorPrefs.SetString(BridgeSourceEditorPreference, selected);
-            }
-        }
-
-        private static string ResolveBridgeSourceDirectory()
-        {
-            var configured = UnityEditor.EditorPrefs.GetString(BridgeSourceEditorPreference, "");
-            if (!string.IsNullOrWhiteSpace(configured))
-            {
-                return Path.GetFullPath(configured);
-            }
-
             var packageInfo = PackageInfo.FindForAssembly(typeof(RadarBridgeLauncher).Assembly);
-            if (packageInfo != null && !string.IsNullOrWhiteSpace(packageInfo.resolvedPath))
+            if (packageInfo == null || string.IsNullOrWhiteSpace(packageInfo.resolvedPath))
             {
-                var embedded = BridgePathResolver.GetEmbeddedPublishDirectory(packageInfo.resolvedPath);
-                if (File.Exists(Path.Combine(embedded, BridgePathResolver.ExecutableName)))
-                {
-                    return embedded;
-                }
+                throw new BuildFailedException(
+                    "Unable to resolve the installed com.blaze.radar package. Reinstall the package before building.");
             }
 
-            return Path.GetFullPath(Path.Combine(
-                Application.dataPath,
-                "..",
-                "artifacts",
-                "publish",
-                "RadarBridge",
-                BridgePathResolver.RuntimeIdentifier));
+            if (!string.Equals(packageInfo.version, UnitySdkVersion.Value, StringComparison.Ordinal))
+            {
+                throw new BuildFailedException(
+                    $"Blaze Radar package/code version mismatch. Package Manager resolved '{packageInfo.version}', " +
+                    $"but the SDK code reports '{UnitySdkVersion.Value}'. Remove the package cache and reinstall the requested tag.");
+            }
+
+            var embeddedDirectory = BridgePathResolver.GetEmbeddedPublishDirectory(packageInfo.resolvedPath);
+            var executable = Path.Combine(embeddedDirectory, BridgePathResolver.ExecutableName);
+            if (!File.Exists(executable))
+            {
+                throw new BuildFailedException(
+                    $"The current com.blaze.radar {packageInfo.version} package does not contain RadarBridge.exe. " +
+                    $"Reinstall the package. Expected: {executable}");
+            }
+
+            return embeddedDirectory;
+        }
+
+        private static void ValidateBridgeVersion(string directory, string location)
+        {
+            var executable = Path.Combine(directory, BridgePathResolver.ExecutableName);
+            if (!File.Exists(executable))
+            {
+                throw new BuildFailedException($"RadarBridge.exe is missing from the {location}: {executable}");
+            }
+
+            var versionFile = Path.Combine(directory, BridgeVersionFileName);
+            if (!File.Exists(versionFile))
+            {
+                throw new BuildFailedException(
+                    $"RadarBridge version marker is missing from the {location}: {versionFile}");
+            }
+
+            var bridgeVersion = File.ReadAllText(versionFile).Trim();
+            if (!string.Equals(bridgeVersion, UnitySdkVersion.Value, StringComparison.Ordinal))
+            {
+                throw new BuildFailedException(
+                    $"RadarBridge version mismatch in the {location}. Expected {UnitySdkVersion.Value}, " +
+                    $"found '{bridgeVersion}' at {versionFile}.");
+            }
+        }
+
+        private static string ComputeSha256(string path)
+        {
+            using (var algorithm = SHA256.Create())
+            using (var stream = File.OpenRead(path))
+            {
+                return BitConverter.ToString(algorithm.ComputeHash(stream)).Replace("-", string.Empty);
+            }
         }
 
         private static void CopyDirectory(string source, string destination)

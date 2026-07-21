@@ -12,7 +12,7 @@ public sealed class PackageIdentityTests
 
         using var packageJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(packageRoot, "package.json")));
         Assert.Equal("com.blaze.radar", packageJson.RootElement.GetProperty("name").GetString());
-        const string expectedVersion = "1.1.3";
+        const string expectedVersion = "1.1.4";
         Assert.Equal(expectedVersion, packageJson.RootElement.GetProperty("version").GetString());
         Assert.Equal("Blaze Radar SDK", packageJson.RootElement.GetProperty("displayName").GetString());
 
@@ -143,6 +143,25 @@ public sealed class PackageIdentityTests
         Assert.Contains("InvokeSafely(ErrorReceived", dispatcherSource, StringComparison.Ordinal);
         Assert.Contains("InvokeSafely(PointerFrameReceived", dispatcherSource, StringComparison.Ordinal);
         Assert.Contains("GetInvocationList()", dispatcherSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PlayerBuild_UsesCurrentPackageBridgeAndVerifiesCopiedPayload()
+    {
+        var buildProcessorSource = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "UnityPackage",
+            "com.blaze.radar",
+            "Editor",
+            "RadarBuildProcessor.cs"));
+
+        Assert.Contains("PackageInfo.FindForAssembly", buildProcessorSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("EditorPrefs.GetString", buildProcessorSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("BridgeSourceEditorPreference", buildProcessorSource, StringComparison.Ordinal);
+        Assert.Contains("bridge-version.txt", buildProcessorSource, StringComparison.Ordinal);
+        Assert.Contains("UnitySdkVersion.Value", buildProcessorSource, StringComparison.Ordinal);
+        Assert.Contains("Directory.Delete(destinationDirectory, recursive: true)", buildProcessorSource, StringComparison.Ordinal);
+        Assert.Contains("ComputeSha256", buildProcessorSource, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

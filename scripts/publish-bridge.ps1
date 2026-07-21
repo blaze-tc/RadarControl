@@ -12,6 +12,8 @@ Set-StrictMode -Version Latest
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $outputDirectory = Join-Path $repositoryRoot "artifacts\publish\RadarBridge\$Runtime"
 $project = Join-Path $repositoryRoot 'src\Radar.Bridge.Wpf\Radar.Bridge.Wpf.csproj'
+$packageJsonPath = Join-Path $repositoryRoot 'UnityPackage\com.blaze.radar\package.json'
+$packageVersion = (Get-Content -LiteralPath $packageJsonPath -Raw | ConvertFrom-Json).version
 $selfContained = if ($FrameworkDependent) { 'false' } else { 'true' }
 
 if ($FrameworkDependent -and -not $SkipUnityPackageEmbedding) {
@@ -28,6 +30,12 @@ try {
     New-Item -ItemType Directory -Force -Path $profilesDirectory | Out-Null
     Copy-Item -Path (Join-Path $repositoryRoot 'config\*.json') `
         -Destination $profilesDirectory -Force
+
+    $versionMarker = Join-Path $outputDirectory 'bridge-version.txt'
+    [System.IO.File]::WriteAllText(
+        $versionMarker,
+        $packageVersion,
+        [System.Text.UTF8Encoding]::new($false))
 
     $executable = Join-Path $outputDirectory 'RadarBridge.exe'
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {

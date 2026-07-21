@@ -1,5 +1,7 @@
 namespace Radar.Unity.Compatibility.Tests;
 
+using System.Text.Json;
+
 public sealed class EmbeddedBridgePayloadTests
 {
     [Fact]
@@ -17,8 +19,19 @@ public sealed class EmbeddedBridgePayloadTests
         AssertFileExists(publishDirectory, "RadarBridge.deps.json");
         AssertFileExists(publishDirectory, "RadarBridge.runtimeconfig.json");
         AssertFileExists(publishDirectory, "coreclr.dll");
+        AssertFileExists(publishDirectory, "bridge-version.txt");
         AssertFileExists(publishDirectory, "profiles", "default-profile.json");
         AssertFileExists(publishDirectory, "profiles", "f20-profile.json");
+
+        using var packageJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "UnityPackage",
+            "com.blaze.radar",
+            "package.json")));
+        var expectedVersion = packageJson.RootElement.GetProperty("version").GetString();
+        var embeddedVersion = File.ReadAllText(Path.Combine(publishDirectory, "bridge-version.txt")).Trim();
+
+        Assert.Equal(expectedVersion, embeddedVersion);
     }
 
     private static void AssertFileExists(params string[] pathParts)

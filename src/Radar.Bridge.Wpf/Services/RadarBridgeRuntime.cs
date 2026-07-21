@@ -761,5 +761,5 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
 
 public static class BridgeVersion
 {
-    public const string Value = "1.1.3";
+    public const string Value = "1.1.4";
 }

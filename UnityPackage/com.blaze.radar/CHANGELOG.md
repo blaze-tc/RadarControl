@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.4 - 2026-07-21
+
+- Always package RadarBridge from the currently resolved `com.blaze.radar` package instead of a machine-persistent legacy EditorPrefs path.
+- Remove the previous player `RadarBridge` directory before copying so deleted or renamed Bridge files cannot survive incremental builds.
+- Stamp embedded Bridge payloads with the package version and fail the Unity build when the package, SDK or Bridge versions differ.
+- Verify the copied `RadarBridge.exe` against the package source with SHA-256 and report the packaged version and hash in the Unity Console.
+
 ## 1.1.3 - 2026-07-21
 
 - Split RadarBridge visualization into a read-only raw sensor view and a separate transformed/filtered Unity output view.

@@ -1,9 +1,9 @@
 # 版本与已知限制
 
-## 1.1.3
+## 1.1.4
 
-- Bridge：`BridgeVersion.Value = 1.1.3`
-- Unity SDK：`UnitySdkVersion.Value = 1.1.3`，与 `package.json` 一致
+- Bridge：`BridgeVersion.Value = 1.1.4`
+- Unity SDK：`UnitySdkVersion.Value = 1.1.4`，与 `package.json` 一致
 - Unity 包名：`com.blaze.radar`；公共 C# 命名空间：`Blaze.Radar`
 - IPC：`IpcProtocolVersion.Current = 1`
 - Basic Interaction：包含有界真机日志、帧序号/时间/丢帧统计、逐指针数据及 UGUI/2D/3D EventSystem 回调。

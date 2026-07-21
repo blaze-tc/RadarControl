@@ -6,7 +6,7 @@
 
 如果项目曾安装 `com.yuexin.radar`，请先移除旧包并删除旧的 `Assets/Samples/Yuexin Radar SDK/1.0.1`；该目录是 Unity 复制到 `Assets` 的 Sample，不会随旧包自动移除。
 
-1. Unity Package Manager 选择 **Install package from git URL**，推荐使用固定版本地址 `https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.blaze.radar#v1.1.3`；也可以选择 **Add package from disk** 并打开 `UnityPackage/com.blaze.radar/package.json`。
+1. Unity Package Manager 选择 **Install package from git URL**，推荐使用固定版本地址 `https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.blaze.radar#v1.1.4`；也可以选择 **Add package from disk** 并打开 `UnityPackage/com.blaze.radar/package.json`。
 2. 等待约 161 MB 的 self-contained Bridge 与 SDK 下载、导入完成。
 3. 导入 **Basic Interaction** Sample。
 4. 通过 **Tools > Blaze Radar > Create or Select Settings** 创建 Settings；`Editor Bridge Executable` 留空时自动使用包内 Bridge，需要调试其他版本时才设置覆盖路径。
@@ -38,7 +38,7 @@ RadarBridge/
 Game_Data/
 ```
 
-若包内缺少 `RadarBridge.exe`，Unity Build 会明确失败而不是生成缺件包。开发者可运行 `.\scripts\publish-bridge.ps1` 重新生成并同步内嵌目录，或在 **Tools > Blaze Radar > Bridge Publish Directory** 指定其他发布目录。
+构建处理器只从当前 Package Manager 已解析的 `com.blaze.radar` 包读取 Bridge，不再使用机器全局的旧发布路径。复制前会清理玩家旁已有的 `RadarBridge` 目录，并校验包版本、`bridge-version.txt` 和复制前后 EXE 的 SHA-256；任何不一致都会让 Unity Build 明确失败。包开发者可运行 `.\scripts\publish-bridge.ps1` 重新生成并同步内嵌目录。
 
 ## 验收
 
