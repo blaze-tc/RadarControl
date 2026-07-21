@@ -17,6 +17,7 @@
   "range": {
     "minimumDistanceMeters": 0.1,
     "maximumDistanceMeters": 5,
+    "visualizationRangeMeters": 4,
     "minimumAngleDegrees": 0,
     "maximumAngleDegrees": 360,
     "activePolygon": [],

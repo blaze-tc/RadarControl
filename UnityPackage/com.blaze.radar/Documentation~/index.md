@@ -1,4 +1,4 @@
-# Blaze Radar SDK 1.1.4
+# Blaze Radar SDK 1.1.5
 
 The package connects Unity to the external `RadarBridge.exe` over the `Yuexin.RadarBridge` Named Pipe. Unity never opens the radar TCP socket.
 

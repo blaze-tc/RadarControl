@@ -1,28 +1,32 @@
 using Microsoft.Extensions.Logging;
 using Yuexin.Radar.Bridge.Wpf.Logging;
 
-namespace Radar.Bridge.Wpf.Tests;
+namespace Yuexin.Radar.Bridge.Wpf.Tests;
 
 public sealed class AsyncFileLoggerProviderTests
 {
     [Fact]
-    public async Task DisposeAsync_FlushesQueuedEntriesToFile()
+    public async Task LogEntry_IsFlushedWhileBridgeIsStillRunning()
     {
-        var directory = Path.Combine(Path.GetTempPath(), $"radar-log-{Guid.NewGuid():N}");
-        var path = Path.Combine(directory, "radar-bridge.log");
-
+        var directory = Path.Combine(Path.GetTempPath(), "RadarControl.Tests", Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(directory, "bridge.log");
         try
         {
-            var provider = new AsyncFileLoggerProvider(path, capacity: 8);
-            var logger = provider.CreateLogger("Radar.Tests");
+            await using var provider = new AsyncFileLoggerProvider(path);
+            var logger = provider.CreateLogger("test");
 
-            logger.LogInformation("connected to {Endpoint}", "192.168.0.100:8487");
-            await provider.DisposeAsync();
+            logger.LogInformation("live pipeline diagnostics");
 
-            var contents = await File.ReadAllTextAsync(path);
-            Assert.Contains("Information", contents);
-            Assert.Contains("Radar.Tests", contents);
-            Assert.Contains("connected to 192.168.0.100:8487", contents);
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(2);
+            while ((!File.Exists(path) || new FileInfo(path).Length == 0) &&
+                   DateTimeOffset.UtcNow < deadline)
+            {
+                await Task.Delay(25);
+            }
+
+            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream);
+            Assert.Contains("live pipeline diagnostics", await reader.ReadToEndAsync());
         }
         finally
         {

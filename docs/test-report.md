@@ -58,7 +58,7 @@ dotnet test RadarControl.sln --no-restore
 
 ## 阶段 8：WPF Bridge
 
-- `Radar.Bridge.Wpf.Tests`：24/24 通过。
+- `Radar.Bridge.Wpf.Tests`：27/27 通过。
 - 覆盖主 ViewModel 的型号/网卡/区域/标定状态、坐标视口、模拟数据、回放暂停与单步、屏蔽区编辑、只读指标绑定的真实窗口启动、双数据区布局、点云短时余辉、Per-Monitor V2 manifest，以及运行时幂等释放。
 - Release WPF 编译通过；原始雷达点与变换/过滤后的 Unity 输出点由两个独立 Surface 显示，输出区保留目标、有效区域与屏蔽区。
 
@@ -83,9 +83,9 @@ dotnet test RadarControl.sln --no-restore
 - `Radar.Configuration.Tests`：6/6。
 - `Radar.Processing.Tests`：23/23。
 - `Radar.Ipc.Tests`：11/11。
-- `Radar.Bridge.Wpf.Tests`：24/24。
+- `Radar.Bridge.Wpf.Tests`：27/27。
 - `Radar.Unity.Compatibility.Tests`：17/17。
-- 合计：113/113 通过，0 失败，0 跳过。
+- 合计：116/116 通过，0 失败，0 跳过。
 
 ## 现场尚待执行
 

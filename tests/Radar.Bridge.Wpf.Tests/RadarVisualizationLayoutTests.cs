@@ -22,12 +22,14 @@ public sealed class RadarVisualizationLayoutTests
         Assert.Equal("False", (string?)raw.Attribute("ShowBlindZone"));
         Assert.Equal("False", (string?)raw.Attribute("IsRegionEditable"));
         Assert.Null(raw.Attribute("RegionVertices"));
+        Assert.Equal("{Binding VisualizationRangeMeters}", (string?)raw.Attribute("MaximumRangeMeters"));
 
         Assert.Equal("False", (string?)output.Attribute("ShowRawPoints"));
         Assert.Equal("True", (string?)output.Attribute("ShowValidPoints"));
         Assert.Equal("False", (string?)output.Attribute("ShowBlindZone"));
         Assert.Equal("True", (string?)output.Attribute("IsRegionEditable"));
         Assert.Equal("{Binding RegionVertices}", (string?)output.Attribute("RegionVertices"));
+        Assert.Equal("{Binding VisualizationRangeMeters}", (string?)output.Attribute("MaximumRangeMeters"));
 
         var labels = document.Descendants(presentation + "TextBlock")
             .Select(element => (string?)element.Attribute("Text"))
@@ -35,6 +37,7 @@ public sealed class RadarVisualizationLayoutTests
             .ToArray();
         Assert.Contains("区域 1 · 雷达原始数据", labels);
         Assert.Contains("区域 2 · Unity 输出数据", labels);
+        Assert.Contains("显示范围（仅缩放，不过滤）", labels);
     }
 
     private static string FindRepositoryRoot()

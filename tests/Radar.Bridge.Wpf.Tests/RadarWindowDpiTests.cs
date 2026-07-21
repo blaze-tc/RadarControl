@@ -37,6 +37,23 @@ public sealed class RadarWindowDpiTests
             (string?)setter.Attribute("Value") == "ClearType");
     }
 
+    [Fact]
+    public void Bridge_ForcesSoftwareRenderingBeforeCreatingAnyWindow()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "src",
+            "Radar.Bridge.Wpf",
+            "App.xaml.cs"));
+
+        const string softwareRendering = "RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;";
+        var renderingIndex = source.IndexOf(softwareRendering, StringComparison.Ordinal);
+        var startupIndex = source.IndexOf("base.OnStartup(eventArgs);", StringComparison.Ordinal);
+
+        Assert.True(renderingIndex >= 0, "RadarBridge must force WPF software rendering on projector PCs.");
+        Assert.True(renderingIndex < startupIndex, "Software rendering must be selected before WPF creates a window.");
+    }
+
     private static string FindRepositoryRoot()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory);

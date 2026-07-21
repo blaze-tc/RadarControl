@@ -39,6 +39,7 @@ public sealed class RadarRangeConfiguration
 {
     public float MinimumDistanceMeters { get; set; } = 0.1f;
     public float MaximumDistanceMeters { get; set; } = 5f;
+    public float VisualizationRangeMeters { get; set; } = 4f;
     public float MinimumAngleDegrees { get; set; }
     public float MaximumAngleDegrees { get; set; } = 360f;
     public List<RadarPoint2> ActivePolygon { get; set; } = [];

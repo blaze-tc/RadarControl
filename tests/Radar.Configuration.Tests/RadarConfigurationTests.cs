@@ -15,6 +15,7 @@ public sealed class RadarConfigurationTests
         Assert.Equal("192.168.0.100", configuration.Device.RadarIp);
         Assert.Equal(8487, configuration.Device.Port);
         Assert.Equal(5f, configuration.Range.MaximumDistanceMeters);
+        Assert.Equal(4f, configuration.Range.VisualizationRangeMeters);
         Assert.Equal("Yuexin.RadarBridge", configuration.Ipc.PipeName);
     }
 
@@ -68,12 +69,14 @@ public sealed class RadarConfigurationTests
             var configuration = RadarAppConfiguration.CreateDefault();
             configuration.Device.DeviceModel = RadarModel.F20;
             configuration.Range.MaximumDistanceMeters = 20f;
+            configuration.Range.VisualizationRangeMeters = 7.5f;
 
             await RadarConfigurationStore.SaveAsync(path, configuration);
             var loaded = await RadarConfigurationStore.LoadAsync(path);
 
             Assert.Equal(RadarModel.F20, loaded.Device.DeviceModel);
             Assert.Equal(20f, loaded.Range.MaximumDistanceMeters);
+            Assert.Equal(7.5f, loaded.Range.VisualizationRangeMeters);
         }
         finally
         {

@@ -8,7 +8,7 @@ public sealed class RadarPipeServerOptions
     public string PipeName { get; set; } = "Yuexin.RadarBridge";
     public TimeSpan HeartbeatTimeout { get; set; } = TimeSpan.FromSeconds(3);
     public Func<HelloAckPayload> HelloAckFactory { get; set; } =
-        () => new HelloAckPayload("1.1.4", "F10", false);
+        () => new HelloAckPayload("1.1.5", "F10", false);
 }
 
 public sealed class RadarPipeServer : IAsyncDisposable

@@ -332,12 +332,12 @@ public sealed class RadarPointCloudView : FrameworkElement
 
         if (ShowRawPoints)
         {
-            DrawPointLayers(drawingContext, _rawPointFrames.GetLayers(DateTimeOffset.UtcNow), RawPointBrush, 2.1d);
+            DrawPointLayers(drawingContext, _rawPointFrames.GetLayers(DateTimeOffset.UtcNow), RawPointBrush, 1.2d);
         }
 
         if (ShowValidPoints)
         {
-            DrawPointLayers(drawingContext, _validPointFrames.GetLayers(DateTimeOffset.UtcNow), ValidPointBrush, 2.6d);
+            DrawPointLayers(drawingContext, _validPointFrames.GetLayers(DateTimeOffset.UtcNow), ValidPointBrush, 1.8d);
         }
 
         if (ShowClusters)

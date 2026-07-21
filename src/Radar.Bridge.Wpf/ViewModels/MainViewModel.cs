@@ -103,6 +103,7 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(ScanFrequencyDescription));
             OnPropertyChanged(nameof(AngularResolutionDescription));
             OnPropertyChanged(nameof(MaximumDistanceMeters));
+            OnPropertyChanged(nameof(VisualizationRangeMeters));
             RefreshCalibrationStatus(modelChanged: true);
             AddLog($"雷达型号已切换为 {_modelProfile.DisplayName}；协议解析公式保持不变。");
         }
@@ -201,6 +202,22 @@ public sealed class MainViewModel : ObservableObject
             }
 
             _configuration.Range.MaximumDistanceMeters = clamped;
+            OnPropertyChanged();
+        }
+    }
+
+    public float VisualizationRangeMeters
+    {
+        get => _configuration.Range.VisualizationRangeMeters;
+        set
+        {
+            var clamped = Math.Clamp(value, 0.25f, _modelProfile.MaximumDistanceMeters);
+            if (Math.Abs(_configuration.Range.VisualizationRangeMeters - clamped) < float.Epsilon)
+            {
+                return;
+            }
+
+            _configuration.Range.VisualizationRangeMeters = clamped;
             OnPropertyChanged();
         }
     }

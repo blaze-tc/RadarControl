@@ -1,14 +1,16 @@
 # 版本与已知限制
 
-## 1.1.4
+## 1.1.5
 
-- Bridge：`BridgeVersion.Value = 1.1.4`
-- Unity SDK：`UnitySdkVersion.Value = 1.1.4`，与 `package.json` 一致
+- Bridge：`BridgeVersion.Value = 1.1.5`
+- Unity SDK：`UnitySdkVersion.Value = 1.1.5`，与 `package.json` 一致
 - Unity 包名：`com.blaze.radar`；公共 C# 命名空间：`Blaze.Radar`
 - IPC：`IpcProtocolVersion.Current = 1`
 - Basic Interaction：包含有界真机日志、帧序号/时间/丢帧统计、逐指针数据及 UGUI/2D/3D EventSystem 回调。
 - Bridge 可视化：区域 1 固定显示原始雷达点；区域 2 显示变换/过滤后的有效点、目标和可编辑输出区域，点云短时余辉只影响显示。
 - Windows 显示：显式使用 Per-Monitor V2 DPI、ClearType 与像素对齐，适配投影电脑和不同缩放比例的多显示器。
+- 投影兼容：Bridge 强制使用 WPF 软件渲染，避免部分 NVIDIA/投影组合在点击控件后出现脏区、模糊或控件消失。
+- Unity 映射：未保存四点标定时，当前绿色四角有效区域自动映射到 Unity 全屏；零目标时仍发送诊断帧。
 
 IPC 主版本不一致时握手会返回明确 Error，客户端不得继续消费业务帧。Bridge 与 Unity SDK 可独立修订，但修改帧结构或语义时必须同时升级 IPC 版本和兼容测试。
 

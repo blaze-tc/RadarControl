@@ -12,7 +12,7 @@ public sealed class PackageIdentityTests
 
         using var packageJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(packageRoot, "package.json")));
         Assert.Equal("com.blaze.radar", packageJson.RootElement.GetProperty("name").GetString());
-        const string expectedVersion = "1.1.4";
+        const string expectedVersion = "1.1.5";
         Assert.Equal(expectedVersion, packageJson.RootElement.GetProperty("version").GetString());
         Assert.Equal("Blaze Radar SDK", packageJson.RootElement.GetProperty("displayName").GetString());
 
@@ -143,6 +143,8 @@ public sealed class PackageIdentityTests
         Assert.Contains("InvokeSafely(ErrorReceived", dispatcherSource, StringComparison.Ordinal);
         Assert.Contains("InvokeSafely(PointerFrameReceived", dispatcherSource, StringComparison.Ordinal);
         Assert.Contains("GetInvocationList()", dispatcherSource, StringComparison.Ordinal);
+        Assert.Contains("[Blaze Radar] IPC", dispatcherSource, StringComparison.Ordinal);
+        Assert.Contains("Pointer frame", dispatcherSource, StringComparison.Ordinal);
     }
 
     [Fact]

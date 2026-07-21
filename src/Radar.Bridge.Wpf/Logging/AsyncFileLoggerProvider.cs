@@ -69,9 +69,8 @@ public sealed class AsyncFileLoggerProvider : ILoggerProvider, IAsyncDisposable
         await foreach (var entry in _entries.Reader.ReadAllAsync().ConfigureAwait(false))
         {
             await writer.WriteLineAsync(entry).ConfigureAwait(false);
+            await writer.FlushAsync().ConfigureAwait(false);
         }
-
-        await writer.FlushAsync().ConfigureAwait(false);
     }
 
     private sealed class AsyncFileLogger(string categoryName, ChannelWriter<string> writer) : ILogger

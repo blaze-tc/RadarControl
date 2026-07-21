@@ -11,6 +11,8 @@ namespace Blaze.Radar
         [SerializeField] private bool autoConnect = true;
 
         private RadarPipeClient _client;
+        private long _receivedFrameCount;
+        private int _lastLoggedPointerCount = -1;
 
         public RadarPointerFrameMessage LatestFrame { get; private set; }
         public RadarPipeClient Client => _client;
@@ -31,8 +33,16 @@ namespace Blaze.Radar
                 settings.PipeName,
                 settings.ConnectTimeoutMilliseconds,
                 settings.ReconnectDelayMilliseconds);
-            _client.ConnectionChanged += connected => InvokeSafely(ConnectionChanged, connected);
-            _client.ErrorReceived += message => InvokeSafely(ErrorReceived, message);
+            _client.ConnectionChanged += connected =>
+            {
+                UnityEngine.Debug.Log($"[Blaze Radar] IPC {(connected ? "connected" : "disconnected")}.", this);
+                InvokeSafely(ConnectionChanged, connected);
+            };
+            _client.ErrorReceived += message =>
+            {
+                UnityEngine.Debug.LogError($"[Blaze Radar] IPC error: {message}", this);
+                InvokeSafely(ErrorReceived, message);
+            };
         }
 
         private void Start()
@@ -57,6 +67,16 @@ namespace Blaze.Radar
             if (_client != null && _client.TryConsumeLatestFrame(out var frame))
             {
                 LatestFrame = frame;
+                _receivedFrameCount++;
+                var pointerCount = frame.pointers != null ? frame.pointers.Count : 0;
+                if (_receivedFrameCount == 1 || pointerCount != _lastLoggedPointerCount || _receivedFrameCount % 120 == 0)
+                {
+                    UnityEngine.Debug.Log(
+                        $"[Blaze Radar] Pointer frame seq={frame.sequence}, pointers={pointerCount}, " +
+                        $"received={_receivedFrameCount}, dropped={_client.DroppedFrameCount}.",
+                        this);
+                    _lastLoggedPointerCount = pointerCount;
+                }
                 InvokeSafely(PointerFrameReceived, frame);
             }
         }

@@ -1,6 +1,9 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using System.IO.Pipes;
 using Yuexin.Radar.Bridge.Wpf.Services;
 using Yuexin.Radar.Configuration;
+using Yuexin.Radar.Contracts;
+using Yuexin.Radar.Ipc;
 
 namespace Yuexin.Radar.Bridge.Wpf.Tests;
 
@@ -141,5 +144,110 @@ public sealed class RadarBridgeRuntimeTests
 
         await Assert.ThrowsAsync<FileNotFoundException>(
             () => runtime.ReplayAsync(missingPath, 1d, loop: false));
+    }
+
+    [Fact]
+    public async Task Simulation_MapsActiveRegionToUnityWithoutExplicitCalibration()
+    {
+        var configuration = CreateIpcSimulationConfiguration();
+        await using var runtime = new RadarBridgeRuntime(
+            configuration,
+            NullLogger<RadarBridgeRuntime>.Instance);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+
+        await runtime.StartInfrastructureAsync(cancellation.Token);
+        await using var client = await ConnectUnityClientAsync(configuration.Ipc.PipeName, cancellation.Token);
+        await runtime.StartSimulationAsync(cancellation.Token);
+
+        var frame = await ReadPointerFrameAsync(client, requirePointers: true, cancellation.Token);
+
+        Assert.NotEmpty(frame.Pointers);
+        Assert.All(frame.Pointers, pointer =>
+        {
+            Assert.InRange(pointer.NormalizedX, 0f, 1f);
+            Assert.InRange(pointer.NormalizedY, 0f, 1f);
+        });
+    }
+
+    [Fact]
+    public async Task Simulation_SendsEmptyPointerFramesWhenFiltersRejectEveryPoint()
+    {
+        var configuration = CreateIpcSimulationConfiguration();
+        configuration.Range.ActivePolygon =
+        [
+            new(4f, 5f),
+            new(5f, 5f),
+            new(5f, 4f),
+            new(4f, 4f)
+        ];
+        await using var runtime = new RadarBridgeRuntime(
+            configuration,
+            NullLogger<RadarBridgeRuntime>.Instance);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+
+        await runtime.StartInfrastructureAsync(cancellation.Token);
+        await using var client = await ConnectUnityClientAsync(configuration.Ipc.PipeName, cancellation.Token);
+        await runtime.StartSimulationAsync(cancellation.Token);
+
+        var frame = await ReadPointerFrameAsync(client, requirePointers: false, cancellation.Token);
+
+        Assert.Empty(frame.Pointers);
+    }
+
+    private static RadarAppConfiguration CreateIpcSimulationConfiguration()
+    {
+        var configuration = RadarAppConfiguration.CreateDefault();
+        configuration.Ipc.PipeName = "RadarControl.Tests." + Guid.NewGuid().ToString("N");
+        configuration.Range.ActivePolygon =
+        [
+            new(-5f, 5f),
+            new(5f, 5f),
+            new(5f, -5f),
+            new(-5f, -5f)
+        ];
+        return configuration;
+    }
+
+    private static async Task<NamedPipeClientStream> ConnectUnityClientAsync(
+        string pipeName,
+        CancellationToken cancellationToken)
+    {
+        var client = new NamedPipeClientStream(
+            ".",
+            pipeName,
+            PipeDirection.InOut,
+            PipeOptions.Asynchronous);
+        await client.ConnectAsync(cancellationToken);
+        await IpcStream.WriteAsync(
+            client,
+            IpcEnvelope.Create(
+                IpcMessageType.Hello,
+                1,
+                new HelloPayload(42, "2021.3", 1920, 1080)),
+            cancellationToken);
+        var acknowledgement = await IpcStream.ReadAsync(client, cancellationToken);
+        Assert.Equal(IpcMessageType.HelloAck, acknowledgement.MessageType);
+        return client;
+    }
+
+    private static async Task<PointerFramePayload> ReadPointerFrameAsync(
+        Stream client,
+        bool requirePointers,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var envelope = await IpcStream.ReadAsync(client, cancellationToken);
+            if (envelope.MessageType != IpcMessageType.PointerFrame)
+            {
+                continue;
+            }
+
+            var frame = envelope.DeserializePayload<PointerFramePayload>();
+            if (!requirePointers || frame.Pointers.Count > 0)
+            {
+                return frame;
+            }
+        }
     }
 }

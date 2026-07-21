@@ -394,7 +394,7 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
             var valid = RadarPointFilter.Apply(transformed, ToFilterOptions(profile));
             var clusters = new SequentialPointClusterer(ToClusteringOptions()).Cluster(valid);
             var tracking = tracker.Update(clusters);
-            var calibration = CreateCalibrationMapper();
+            var calibration = CreateOutputMapper();
             var mappedTargets = tracking.ObservedTargets
                 .Select(target => MapTarget(target, calibration))
                 .ToArray();
@@ -427,7 +427,7 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
                 _connectionService?.Metrics.DiscardedByteCount ?? 0);
             InvokeSafely(SnapshotUpdated, snapshot);
 
-            if (_pipeServer is not null && pointers.Count > 0)
+            if (_pipeServer is not null)
             {
                 var sent = await _pipeServer.SendAsync(
                     IpcEnvelope.Create(
@@ -635,6 +635,22 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
         return HomographyCalibration.TryCreate(corners, out var mapper, out _) ? mapper : null;
     }
 
+    private HomographyCalibration? CreateOutputMapper()
+    {
+        var savedCalibration = CreateCalibrationMapper();
+        if (savedCalibration is not null)
+        {
+            return savedCalibration;
+        }
+
+        var activeRegion = _configuration.Range.ActivePolygon
+            .Select(point => new Point2(point.X, point.Y))
+            .ToArray();
+        return HomographyCalibration.TryCreate(activeRegion, out var regionMapper, out _)
+            ? regionMapper
+            : null;
+    }
+
     private static RadarTarget MapTarget(RadarTarget target, HomographyCalibration? calibration)
     {
         if (calibration is not null && calibration.TryMap(target.PhysicalX, target.PhysicalY, out var x, out var y))
@@ -761,5 +777,5 @@ public sealed class RadarBridgeRuntime : IRadarBridgeRuntime
 
 public static class BridgeVersion
 {
-    public const string Value = "1.1.4";
+    public const string Value = "1.1.5";
 }

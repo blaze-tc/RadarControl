@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.5 - 2026-07-21
+
+- Force WPF software rendering before window creation to prevent projector/GPU dirty-region corruption that could hide or blur controls.
+- Add a persistent display-only radar range shared by both plots and reduce point radii so dense nearby scans remain readable without changing filtering.
+- Use the editable four-corner active region as the Unity normalization map when no saved calibration exists.
+- Send pointer frames even when they contain zero pointers, allowing Unity diagnostics to distinguish an empty filtered frame from a stalled IPC stream.
+- Write throttled IPC/frame diagnostics to Unity `Player.log` and flush Bridge file logs while the process is running.
+
 ## 1.1.4 - 2026-07-21
 
 - Always package RadarBridge from the currently resolved `com.blaze.radar` package instead of a machine-persistent legacy EditorPrefs path.

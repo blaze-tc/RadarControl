@@ -31,6 +31,18 @@ public static class ConfigurationValidator
             warnings.Add($"maximumDistanceMeters was clamped to {profile.MaximumDistanceMeters} for {profile.Model}.");
         }
 
+        if (!float.IsFinite(configuration.Range.VisualizationRangeMeters) ||
+            configuration.Range.VisualizationRangeMeters <= 0f)
+        {
+            configuration.Range.VisualizationRangeMeters = MathF.Min(4f, profile.MaximumDistanceMeters);
+            warnings.Add("visualizationRangeMeters was invalid and reset to the default view range.");
+        }
+        else if (configuration.Range.VisualizationRangeMeters > profile.MaximumDistanceMeters)
+        {
+            configuration.Range.VisualizationRangeMeters = profile.MaximumDistanceMeters;
+            warnings.Add($"visualizationRangeMeters was clamped to {profile.MaximumDistanceMeters} for {profile.Model}.");
+        }
+
         if (!IPAddress.TryParse(configuration.Device.RadarIp, out _))
         {
             errors.Add("device.radarIp must be a valid IP address.");

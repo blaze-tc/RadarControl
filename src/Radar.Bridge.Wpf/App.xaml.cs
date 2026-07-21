@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Yuexin.Radar.Bridge.Wpf.Logging;
@@ -17,6 +19,7 @@ public partial class App : Application
 
     protected override async void OnStartup(StartupEventArgs eventArgs)
     {
+        RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
         base.OnStartup(eventArgs);
         DispatcherUnhandledException += (_, args) =>
         {
