@@ -6,10 +6,14 @@
         xmlns:controls="clr-namespace:Yuexin.Radar.Bridge.Wpf.Controls"
         mc:Ignorable="d"
         Title="RadarBridge · F10 / F20 控制台"
-        Width="1120"
+        Width="1480"
         Height="700"
-        MinWidth="1100"
+        MinWidth="1280"
         MinHeight="640"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
         WindowStartupLocation="CenterScreen">
     <Grid Background="{StaticResource AppBackgroundBrush}">
         <Grid.RowDefinitions>
@@ -149,39 +153,76 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <Border Grid.Column="2" Style="{StaticResource CardStyle}" Margin="0">
-                <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/><RowDefinition Height="34"/></Grid.RowDefinitions>
-                    <Grid Grid.Row="0">
-                        <TextBlock Text="点云 / 区域 / 跟踪" Style="{StaticResource SectionTitleStyle}" VerticalAlignment="Center" Margin="0"/>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <CheckBox Content="原始" IsChecked="{Binding ElementName=RadarView, Path=ShowRawPoints}" Margin="8,0"/>
-                            <CheckBox Content="有效" IsChecked="{Binding ElementName=RadarView, Path=ShowValidPoints}" Margin="8,0"/>
-                            <CheckBox Content="聚类" IsChecked="{Binding ElementName=RadarView, Path=ShowClusters}" Margin="8,0"/>
-                            <CheckBox Content="目标" IsChecked="{Binding ElementName=RadarView, Path=ShowTargets}" Margin="8,0"/>
+            <Grid Grid.Column="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource CardStyle}" Margin="0">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="52"/><RowDefinition Height="*"/><RowDefinition Height="34"/></Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="区域 1 · 雷达原始数据" Style="{StaticResource SectionTitleStyle}" Margin="0"/>
+                            <TextBlock Text="未经筛选与坐标变换，仅用于观察传感器回波" Style="{StaticResource CaptionStyle}" Margin="0,4,0,0"/>
                         </StackPanel>
+                        <Border Grid.Row="1" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+                            <controls:RadarPointCloudView x:Name="RawRadarView"
+                                                          Snapshot="{Binding LatestSnapshot}"
+                                                          MaximumRangeMeters="{Binding ModelMaximumDistanceMeters}"
+                                                          ShowRawPoints="True"
+                                                          ShowValidPoints="False"
+                                                          ShowClusters="False"
+                                                          ShowTargets="False"
+                                                          ShowFilterOverlay="False"
+                                                          ShowBlindZone="False"
+                                                          IsRegionEditable="False"/>
+                        </Border>
+                        <Grid Grid.Row="2" Margin="2,8,2,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="原始点 " Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{Binding RawPointCount}" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                            <TextBlock Text="短时余辉仅影响显示" HorizontalAlignment="Right" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        </Grid>
                     </Grid>
-                    <Border Grid.Row="1" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
-                        <controls:RadarPointCloudView x:Name="RadarView"
-                                                      Snapshot="{Binding LatestSnapshot}"
-                                                      MaximumRangeMeters="{Binding MaximumDistanceMeters}"
-                                                      RegionVertices="{Binding RegionVertices}"
-                                                      MaskedRegions="{Binding MaskedRegions}"
-                                                      RegionVertexMoved="OnRegionVertexMoved"/>
-                    </Border>
-                    <Grid Grid.Row="2" Margin="2,8,2,0">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="RAW " Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBlock Text="{Binding RawPointCount}" Foreground="{StaticResource TextPrimaryBrush}"/>
-                            <TextBlock Text="  VALID " Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBlock Text="{Binding ValidPointCount}" Foreground="{StaticResource PrimaryBrush}"/>
-                            <TextBlock Text="  TARGET " Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBlock Text="{Binding TargetCount}" Foreground="{StaticResource AccentBrush}"/>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource CardStyle}" Margin="0">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="52"/><RowDefinition Height="*"/><RowDefinition Height="34"/></Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="区域 2 · Unity 输出数据" Style="{StaticResource SectionTitleStyle}" Margin="0"/>
+                            <TextBlock Text="变换与过滤后的有效点；目标由此生成并发送 Unity" Style="{StaticResource CaptionStyle}" Margin="0,4,0,0"/>
                         </StackPanel>
-                        <TextBlock Text="拖拽绿色顶点编辑有效区域" HorizontalAlignment="Right" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <Border Grid.Row="1" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+                            <controls:RadarPointCloudView x:Name="UnityOutputRadarView"
+                                                          Snapshot="{Binding LatestSnapshot}"
+                                                          MaximumRangeMeters="{Binding MaximumDistanceMeters}"
+                                                          RegionVertices="{Binding RegionVertices}"
+                                                          MaskedRegions="{Binding MaskedRegions}"
+                                                          ShowRawPoints="False"
+                                                          ShowValidPoints="True"
+                                                          ShowClusters="False"
+                                                          ShowTargets="True"
+                                                          ShowFilterOverlay="True"
+                                                          ShowBlindZone="False"
+                                                          IsRegionEditable="True"
+                                                          RegionVertexMoved="OnRegionVertexMoved"/>
+                        </Border>
+                        <Grid Grid.Row="2" Margin="2,8,2,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="输出点 " Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{Binding ValidPointCount}" Foreground="{StaticResource PrimaryBrush}"/>
+                                <TextBlock Text="  目标 " Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{Binding TargetCount}" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                            <TextBlock Text="拖拽绿色顶点编辑输出区域" HorizontalAlignment="Right" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        </Grid>
                     </Grid>
-                </Grid>
-            </Border>
+                </Border>
+            </Grid>
 
             <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
@@ -327,7 +368,7 @@
                     <TextBlock Text="  ·  FRAME " Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"/>
                     <TextBlock Text="{Binding LastFrameSequence}"/>
                 </StackPanel>
-                <TextBlock Text="Bridge 1.1.2  ·  IPC 1  ·  Windows x64" HorizontalAlignment="Right" VerticalAlignment="Center"
+                <TextBlock Text="Bridge 1.1.3  ·  IPC 1  ·  Windows x64" HorizontalAlignment="Right" VerticalAlignment="Center"
                            Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"/>
             </Grid>
         </Border>

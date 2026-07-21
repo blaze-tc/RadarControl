@@ -6,7 +6,7 @@
 
 如果项目曾安装 `com.yuexin.radar`，请先移除旧包并删除旧的 `Assets/Samples/Yuexin Radar SDK/1.0.1`；该目录是 Unity 复制到 `Assets` 的 Sample，不会随旧包自动移除。
 
-1. Unity Package Manager 选择 **Install package from git URL**，推荐使用固定版本地址 `https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.blaze.radar#v1.1.2`；也可以选择 **Add package from disk** 并打开 `UnityPackage/com.blaze.radar/package.json`。
+1. Unity Package Manager 选择 **Install package from git URL**，推荐使用固定版本地址 `https://github.com/blaze-tc/RadarControl.git?path=/UnityPackage/com.blaze.radar#v1.1.3`；也可以选择 **Add package from disk** 并打开 `UnityPackage/com.blaze.radar/package.json`。
 2. 等待约 161 MB 的 self-contained Bridge 与 SDK 下载、导入完成。
 3. 导入 **Basic Interaction** Sample。
 4. 通过 **Tools > Blaze Radar > Create or Select Settings** 创建 Settings；`Editor Bridge Executable` 留空时自动使用包内 Bridge，需要调试其他版本时才设置覆盖路径。

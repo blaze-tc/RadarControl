@@ -12,8 +12,19 @@ public sealed class PackageIdentityTests
 
         using var packageJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(packageRoot, "package.json")));
         Assert.Equal("com.blaze.radar", packageJson.RootElement.GetProperty("name").GetString());
-        Assert.Equal("1.1.2", packageJson.RootElement.GetProperty("version").GetString());
+        const string expectedVersion = "1.1.3";
+        Assert.Equal(expectedVersion, packageJson.RootElement.GetProperty("version").GetString());
         Assert.Equal("Blaze Radar SDK", packageJson.RootElement.GetProperty("displayName").GetString());
+
+        var unityVersionSource = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "UnitySdkVersion.cs"));
+        Assert.Contains($"Value = \"{expectedVersion}\"", unityVersionSource, StringComparison.Ordinal);
+
+        var repositoryRoot = FindRepositoryRoot();
+        var bridgeRuntimeSource = File.ReadAllText(Path.Combine(
+            repositoryRoot, "src", "Radar.Bridge.Wpf", "Services", "RadarBridgeRuntime.cs"));
+        Assert.Contains($"Value = \"{expectedVersion}\"", bridgeRuntimeSource, StringComparison.Ordinal);
+        var mainWindow = File.ReadAllText(Path.Combine(repositoryRoot, "src", "Radar.Bridge.Wpf", "MainWindow.xaml"));
+        Assert.Contains($"Bridge {expectedVersion}", mainWindow, StringComparison.Ordinal);
 
         using var runtimeAssembly = JsonDocument.Parse(File.ReadAllText(
             Path.Combine(packageRoot, "Runtime", "Blaze.Radar.Runtime.asmdef")));

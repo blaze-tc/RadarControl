@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.3 - 2026-07-21
+
+- Split RadarBridge visualization into a read-only raw sensor view and a separate transformed/filtered Unity output view.
+- Keep transform, range/angle, polygon and mask processing on the output path used to generate Unity pointers while leaving the raw view unchanged.
+- Add a 220 ms display-only point persistence trail to reduce scan-to-scan flicker without delaying or modifying IPC frames.
+- Declare Per-Monitor V2 DPI awareness, use actual pixels-per-DIP for radar labels and enable rounded ClearType layout for projector and mixed-scaling PCs.
+- Simplify the output plot to effective points, tracked targets and editable output regions instead of stacking raw, valid, cluster and blind-zone overlays.
+
 ## 1.1.2 - 2026-07-20
 
 - Add an in-scene diagnostics panel for IPC state, Bridge/device identity, frame sequence, timing, dropped frames and per-pointer samples.

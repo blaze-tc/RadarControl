@@ -2,6 +2,7 @@ using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Yuexin.Radar.Bridge.Wpf.Services;
 using Yuexin.Radar.Processing;
 
@@ -25,7 +26,7 @@ public sealed class RadarPointCloudView : FrameworkElement
         nameof(Snapshot),
         typeof(RadarRuntimeSnapshot),
         typeof(RadarPointCloudView),
-        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+        new FrameworkPropertyMetadata(null, OnSnapshotChanged));
 
     public static readonly DependencyProperty MaximumRangeMetersProperty = DependencyProperty.Register(
         nameof(MaximumRangeMeters),
@@ -61,13 +62,29 @@ public sealed class RadarPointCloudView : FrameworkElement
         nameof(ShowTargets), typeof(bool), typeof(RadarPointCloudView),
         new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty ShowFilterOverlayProperty = DependencyProperty.Register(
+        nameof(ShowFilterOverlay), typeof(bool), typeof(RadarPointCloudView),
+        new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty ShowBlindZoneProperty = DependencyProperty.Register(
+        nameof(ShowBlindZone), typeof(bool), typeof(RadarPointCloudView),
+        new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty IsRegionEditableProperty = DependencyProperty.Register(
+        nameof(IsRegionEditable), typeof(bool), typeof(RadarPointCloudView),
+        new FrameworkPropertyMetadata(true));
+
     private static readonly Brush BackgroundBrush = FrozenBrush(Color.FromRgb(8, 15, 25));
     private static readonly Brush GridBrush = FrozenBrush(Color.FromArgb(72, 67, 91, 116));
-    private static readonly Brush RawPointBrush = FrozenBrush(Color.FromArgb(120, 104, 139, 163));
+    private static readonly Brush RawPointBrush = FrozenBrush(Color.FromArgb(210, 119, 159, 187));
     private static readonly Brush ValidPointBrush = FrozenBrush(Color.FromRgb(56, 211, 214));
     private static readonly Brush TargetBrush = FrozenBrush(Color.FromRgb(251, 168, 76));
     private static readonly Brush RegionBrush = FrozenBrush(Color.FromRgb(126, 231, 135));
     private static readonly Brush BlindBrush = FrozenBrush(Color.FromArgb(44, 245, 93, 91));
+    private static readonly TimeSpan PointPersistenceDuration = TimeSpan.FromMilliseconds(220);
+    private readonly RadarPointPersistenceBuffer _rawPointFrames = new(PointPersistenceDuration, 6);
+    private readonly RadarPointPersistenceBuffer _validPointFrames = new(PointPersistenceDuration, 6);
+    private readonly DispatcherTimer _persistenceTimer;
     private int _draggedVertex = -1;
 
     public RadarPointCloudView()
@@ -75,6 +92,21 @@ public sealed class RadarPointCloudView : FrameworkElement
         Focusable = true;
         ClipToBounds = true;
         SnapsToDevicePixels = true;
+        UseLayoutRounding = true;
+        _persistenceTimer = new DispatcherTimer(DispatcherPriority.Render)
+        {
+            Interval = TimeSpan.FromMilliseconds(50)
+        };
+        _persistenceTimer.Tick += (_, _) =>
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (_rawPointFrames.GetLayers(now).Count > 0 || _validPointFrames.GetLayers(now).Count > 0)
+            {
+                InvalidateVisual();
+            }
+        };
+        Loaded += (_, _) => _persistenceTimer.Start();
+        Unloaded += (_, _) => _persistenceTimer.Stop();
     }
 
     public RadarRuntimeSnapshot? Snapshot
@@ -125,6 +157,24 @@ public sealed class RadarPointCloudView : FrameworkElement
         set => SetValue(ShowTargetsProperty, value);
     }
 
+    public bool ShowFilterOverlay
+    {
+        get => (bool)GetValue(ShowFilterOverlayProperty);
+        set => SetValue(ShowFilterOverlayProperty, value);
+    }
+
+    public bool ShowBlindZone
+    {
+        get => (bool)GetValue(ShowBlindZoneProperty);
+        set => SetValue(ShowBlindZoneProperty, value);
+    }
+
+    public bool IsRegionEditable
+    {
+        get => (bool)GetValue(IsRegionEditableProperty);
+        set => SetValue(IsRegionEditableProperty, value);
+    }
+
     public event EventHandler<RegionVertexMovedEventArgs>? RegionVertexMoved;
 
     protected override void OnRender(DrawingContext drawingContext)
@@ -137,15 +187,26 @@ public sealed class RadarPointCloudView : FrameworkElement
         }
 
         DrawGrid(drawingContext);
-        DrawBlindZone(drawingContext);
-        DrawRegion(drawingContext);
-        DrawMaskedRegions(drawingContext);
+        if (ShowFilterOverlay)
+        {
+            if (ShowBlindZone)
+            {
+                DrawBlindZone(drawingContext);
+            }
+            DrawRegion(drawingContext);
+            DrawMaskedRegions(drawingContext);
+        }
         DrawSnapshot(drawingContext);
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs eventArgs)
     {
         base.OnMouseLeftButtonDown(eventArgs);
+        if (!IsRegionEditable)
+        {
+            return;
+        }
+
         Focus();
         var vertices = RegionVertices;
         if (vertices is null)
@@ -271,18 +332,12 @@ public sealed class RadarPointCloudView : FrameworkElement
 
         if (ShowRawPoints)
         {
-            foreach (var point in snapshot.RawPoints)
-            {
-                drawingContext.DrawEllipse(RawPointBrush, null, ToScreen(new Point2(point.X, point.Y)), 1.5d, 1.5d);
-            }
+            DrawPointLayers(drawingContext, _rawPointFrames.GetLayers(DateTimeOffset.UtcNow), RawPointBrush, 2.1d);
         }
 
         if (ShowValidPoints)
         {
-            foreach (var point in snapshot.ValidPoints)
-            {
-                drawingContext.DrawEllipse(ValidPointBrush, null, ToScreen(new Point2(point.X, point.Y)), 2.6d, 2.6d);
-            }
+            DrawPointLayers(drawingContext, _validPointFrames.GetLayers(DateTimeOffset.UtcNow), ValidPointBrush, 2.6d);
         }
 
         if (ShowClusters)
@@ -308,6 +363,23 @@ public sealed class RadarPointCloudView : FrameworkElement
                     : string.Empty;
                 DrawLabel(drawingContext, $"T{target.TrackId}{normalized}", position + new Vector(12d, -16d), TargetBrush, 11d);
             }
+        }
+    }
+
+    private void DrawPointLayers(
+        DrawingContext drawingContext,
+        IReadOnlyList<RadarPointPersistenceLayer> layers,
+        Brush brush,
+        double radius)
+    {
+        foreach (var layer in layers)
+        {
+            drawingContext.PushOpacity(layer.Opacity);
+            foreach (var point in layer.Points)
+            {
+                drawingContext.DrawEllipse(brush, null, ToScreen(new Point2(point.X, point.Y)), radius, radius);
+            }
+            drawingContext.Pop();
         }
     }
 
@@ -356,7 +428,7 @@ public sealed class RadarPointCloudView : FrameworkElement
         return new Point(center.X + radius * Math.Cos(radians), center.Y - radius * Math.Sin(radians));
     }
 
-    private static void DrawLabel(
+    private void DrawLabel(
         DrawingContext drawingContext,
         string text,
         Point origin,
@@ -370,7 +442,7 @@ public sealed class RadarPointCloudView : FrameworkElement
             new Typeface("Segoe UI"),
             fontSize,
             brush,
-            1.0);
+            VisualTreeHelper.GetDpi(this).PixelsPerDip);
         drawingContext.DrawText(formatted, origin);
     }
 
@@ -392,6 +464,26 @@ public sealed class RadarPointCloudView : FrameworkElement
         if (eventArgs.NewValue is INotifyCollectionChanged newCollection)
         {
             newCollection.CollectionChanged += control.OnRegionCollectionChanged;
+        }
+
+        control.InvalidateVisual();
+    }
+
+    private static void OnSnapshotChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs eventArgs)
+    {
+        var control = (RadarPointCloudView)dependencyObject;
+        if (eventArgs.NewValue is RadarRuntimeSnapshot snapshot)
+        {
+            var receivedAt = DateTimeOffset.UtcNow;
+            if (control.ShowRawPoints)
+            {
+                control._rawPointFrames.Add(snapshot.Sequence, receivedAt, snapshot.RawPoints);
+            }
+
+            if (control.ShowValidPoints)
+            {
+                control._validPointFrames.Add(snapshot.Sequence, receivedAt, snapshot.ValidPoints);
+            }
         }
 
         control.InvalidateVisual();

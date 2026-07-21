@@ -1,6 +1,6 @@
 # RadarControl 测试报告
 
-更新日期：2026-07-20
+更新日期：2026-07-21
 
 ## 阶段 0
 
@@ -58,15 +58,15 @@ dotnet test RadarControl.sln --no-restore
 
 ## 阶段 8：WPF Bridge
 
-- `Radar.Bridge.Wpf.Tests`：18/18 通过。
-- 覆盖主 ViewModel 的型号/网卡/区域/标定状态、坐标视口、模拟数据、回放暂停与单步、屏蔽区编辑、只读指标绑定的真实窗口启动，以及运行时幂等释放。
-- Release WPF 编译通过；点云由单一自绘 Surface 显示 Raw/Valid/Cluster/Target、盲区、网格、有效区与屏蔽区。
+- `Radar.Bridge.Wpf.Tests`：24/24 通过。
+- 覆盖主 ViewModel 的型号/网卡/区域/标定状态、坐标视口、模拟数据、回放暂停与单步、屏蔽区编辑、只读指标绑定的真实窗口启动、双数据区布局、点云短时余辉、Per-Monitor V2 manifest，以及运行时幂等释放。
+- Release WPF 编译通过；原始雷达点与变换/过滤后的 Unity 输出点由两个独立 Surface 显示，输出区保留目标、有效区域与屏蔽区。
 
 ## 阶段 9：Unity UPM
 
 - `Radar.Unity.Compatibility.Tests`：16/16 通过，直接编译包内长度前缀解码器、容量 1 最新值缓存、Named Pipe 客户端和 Bridge 路径解析器，并验证 IPC 帧序号/时间戳保留、`com.blaze.radar` 包身份、Sample 显式绑定、有界诊断日志、内嵌 self-contained Bridge 与 F10/F20 Profile 完整存在。
 - UPM 包包含 Launcher、PipeClient、FrameDispatcher、RadarInputModule、BuildProcessor、SettingsProvider、PlayMode 测试与 Basic Interaction Sample。
-- Unity 2021.3.45f1 已真实导入并编译 `Blaze.Radar.Runtime`、`Blaze.Radar.Editor` 与 `Blaze.Radar.Sample.BasicInteraction`；已在 Play Mode 验证场景启动、内嵌 Bridge 1.1.2 拉起、Hello/HelloAck IPC 连接、UGUI/3D/2D 射线配置，以及指针探针和详细界面日志。包内自动 PlayMode 测试仍保留给目标项目的 Unity Test Runner 执行。
+- Unity 2021.3.45f1 已真实导入并编译 `Blaze.Radar.Runtime`、`Blaze.Radar.Editor` 与 `Blaze.Radar.Sample.BasicInteraction`；已在 Play Mode 验证场景启动、内嵌 Bridge 拉起、Hello/HelloAck IPC 连接、UGUI/3D/2D 射线配置，以及指针探针和详细界面日志。包内自动 PlayMode 测试仍保留给目标项目的 Unity Test Runner 执行。
 
 ## 阶段 10：构建与发布
 
@@ -74,6 +74,7 @@ dotnet test RadarControl.sln --no-restore
 - Release 全解决方案编译：0 警告、0 错误。
 - `win-x64` self-contained 发布产物包含 `RadarBridge.exe` 与 F10/F20 Profile，并自动同步到 UPM 包的 `Bridge~/win-x64/`。
 - 内嵌 EXE 已验证可创建正常 WPF 主窗口，并在 Unity 父进程结束后以退出码 0 自动关闭。
+- 在 Windows 125% 缩放（DPI 120）下验证发布进程为 Per-Monitor DPI Aware；启动模拟并点击翻转控件后，双数据区和整窗文字保持清晰。
 
 ## 当前全量结果
 
@@ -82,9 +83,9 @@ dotnet test RadarControl.sln --no-restore
 - `Radar.Configuration.Tests`：6/6。
 - `Radar.Processing.Tests`：23/23。
 - `Radar.Ipc.Tests`：11/11。
-- `Radar.Bridge.Wpf.Tests`：18/18。
+- `Radar.Bridge.Wpf.Tests`：24/24。
 - `Radar.Unity.Compatibility.Tests`：16/16。
-- 合计：106/106 通过，0 失败，0 跳过。
+- 合计：112/112 通过，0 失败，0 跳过。
 
 ## 现场尚待执行
 
